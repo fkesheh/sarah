@@ -223,9 +223,35 @@
     .desktop-only { display: none !important; }
     .mobile-only { display: inline !important; }
   }
+
+  .menu-btn, .fullscreen-btn {
+    position: fixed; z-index: 200;
+    background: rgba(90, 58, 42, 0.8);
+    color: #f0e0d0;
+    border: 2px solid rgba(255,255,255,0.3);
+    padding: 10px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+    cursor: pointer;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+  }
+  .menu-btn:hover, .fullscreen-btn:hover {
+    background: rgba(90, 58, 42, 0.95);
+    border-color: rgba(255,255,255,0.6);
+    transform: scale(1.05);
+  }
+  .menu-btn { top: 20px; left: 20px; }
+  .fullscreen-btn { top: 20px; right: 20px; }
 </style>
 </head>
 <body>
+
+<a href="../../" class="menu-btn">← MENU</a>
+<button id="fullscreen-btn" class="fullscreen-btn">⛶ FS</button>
 
 <canvas id="game-canvas"></canvas>
 
@@ -1325,6 +1351,31 @@ document.addEventListener('touchend', function(e) {
     window.scrollTo(0, 0);
   }
 }, { passive: true });
+
+// --- Fullscreen functionality ---
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const menuBtn = document.querySelector('.menu-btn');
+
+fullscreenBtn.addEventListener('click', () => {
+  const elem = document.documentElement;
+  if (!document.fullscreenElement) {
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(err => console.log('Fullscreen error:', err));
+      fullscreenBtn.textContent = '⛶ SAIR';
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+      fullscreenBtn.textContent = '⛶ FS';
+    }
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    fullscreenBtn.textContent = '⛶ FS';
+  }
+});
 
 requestAnimationFrame(gameLoop);
 </script>

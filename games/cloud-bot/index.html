@@ -1,778 +1,915 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cloud Bot!</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Comfortaa:wght@400;700&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Bot - Desvie das Nuvens!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap');
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
-      overflow: hidden;
-      height: 100vh;
-      width: 100vw;
-      background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
-      font-family: 'Comfortaa', sans-serif;
-      user-select: none;
-      overscroll-behavior: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-    }
+  body {
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    font-family: 'Quicksand', sans-serif;
+    background: linear-gradient(170deg, #0b0e2b 0%, #1a1e4a 25%, #2d2066 50%, #4a1a6b 70%, #6b1d5e 85%, #1a1040 100%);
+    user-select: none;
+    cursor: default;
+    touch-action: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
 
-    canvas {
-      display: block;
-      position: fixed;
-      top: 0;
-      left: 0;
-      image-rendering: pixelated;
-    }
+  .stars-layer {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0;
+  }
 
-    .ui-container {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      pointer-events: none;
-    }
+  .star {
+    position: absolute; border-radius: 50%; background: #fff;
+    animation: twinkle var(--dur) ease-in-out infinite alternate;
+  }
 
-    #score-display {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 20px;
-      color: #fff;
-      text-shadow: 3px 3px 0 rgba(0,0,0,0.3), 0 0 10px rgba(135, 206, 235, 0.5);
-      text-align: center;
-      margin-bottom: 10px;
-    }
+  @keyframes twinkle {
+    0% { opacity: 0.15; transform: scale(0.8); }
+    100% { opacity: var(--max-op); transform: scale(1.2); }
+  }
 
-    #high-score-display {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 12px;
-      color: rgba(255,255,255,0.9);
-      text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
-      text-align: center;
-    }
+  .shooting-star {
+    position: fixed; width: 120px; height: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.9), transparent);
+    border-radius: 2px; opacity: 0; pointer-events: none; z-index: 1; filter: blur(0.5px);
+  }
 
-    .screen-overlay {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 30;
-      transition: opacity 0.4s, backdrop-filter 0.4s;
-      backdrop-filter: blur(4px);
-    }
+  @keyframes shoot {
+    0% { opacity: 0; transform: translateX(0) translateY(0); }
+    10% { opacity: 1; }
+    70% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateX(400px) translateY(200px); }
+  }
 
-    .screen-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-      backdrop-filter: blur(0);
-    }
+  .moon {
+    position: fixed; top: 60px; right: 120px;
+    width: 80px; height: 80px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffeedd, #f0c87a);
+    box-shadow: 0 0 40px 15px rgba(255,220,150,0.15), 0 0 80px 30px rgba(255,200,100,0.08);
+    z-index: 1; pointer-events: none;
+  }
 
-    #start-screen {
-      background: linear-gradient(135deg, rgba(135, 206, 235, 0.9) 0%, rgba(176, 224, 230, 0.9) 100%);
-    }
+  #game-canvas {
+    position: fixed; inset: 0;
+    z-index: 50; pointer-events: none;
+  }
 
-    #gameover-screen {
-      background: linear-gradient(135deg, rgba(100, 150, 200, 0.95) 0%, rgba(70, 130, 180, 0.95) 100%);
-    }
+  #cloud-bot {
+    position: fixed; z-index: 100;
+    pointer-events: none; will-change: transform;
+    filter: drop-shadow(0 20px 25px rgba(0,0,0,0.3));
+    transition: filter 0.3s ease;
+  }
 
-    .game-title {
-      font-family: 'Press Start 2P', monospace;
-      font-size: clamp(32px, 8vw, 60px);
-      color: #fff;
-      text-shadow: 4px 4px 0 rgba(0,0,0,0.4), -2px -2px 0 rgba(255,255,255,0.3);
-      margin-bottom: 20px;
-      animation: titleBounce 2s ease-in-out infinite;
-      letter-spacing: 2px;
-    }
+  #cloud-bot.hovered {
+    filter: drop-shadow(0 20px 25px rgba(0,0,0,0.3)) drop-shadow(0 0 20px rgba(180,160,255,0.4));
+  }
 
-    .game-subtitle {
-      font-family: 'Comfortaa', sans-serif;
-      font-size: clamp(16px, 3vw, 24px);
-      color: #fff;
-      margin-bottom: 30px;
-      font-weight: 700;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
+  #cloud-bot.moving .cloud-body { animation: bob-fast 1.2s ease-in-out infinite; }
 
-    .instruction {
-      font-family: 'Press Start 2P', monospace;
-      font-size: clamp(11px, 2vw, 14px);
-      color: rgba(255,255,255,0.95);
-      text-align: center;
-      line-height: 1.8;
-      margin-bottom: 40px;
-      animation: pulse 2s ease-in-out infinite;
-    }
+  .cloud-body { animation: bob 3s ease-in-out infinite; transform-origin: center; }
 
-    .play-btn {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 16px;
-      padding: 16px 40px;
-      background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 6px 0 #2d7a2d, 0 8px 15px rgba(0,0,0,0.3);
-      transition: all 0.1s;
-      text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
-    }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  @keyframes bob-fast {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-10px) rotate(2deg); }
+  }
 
-    .play-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 0 #2d7a2d, 0 10px 20px rgba(0,0,0,0.3);
-    }
+  .blush { opacity: 0.5; transition: opacity 0.5s ease; }
+  #cloud-bot.moving .blush { opacity: 0.8; }
+  #cloud-bot.sleepy .blush { opacity: 0.3; }
+  #cloud-bot.dead .blush { opacity: 0; }
 
-    .play-btn:active {
-      transform: translateY(4px);
-      box-shadow: 0 2px 0 #2d7a2d, 0 4px 8px rgba(0,0,0,0.3);
-    }
+  @keyframes blink {
+    0%, 90%, 100% { transform: scaleY(1); }
+    95% { transform: scaleY(0.05); }
+  }
+  .eye-pupil { animation: blink 4s ease-in-out infinite; transform-origin: center; }
 
-    .final-score {
-      font-family: 'Press Start 2P', monospace;
-      font-size: clamp(32px, 6vw, 56px);
-      color: #FFD700;
-      text-shadow: 3px 3px 0 rgba(0,0,0,0.4);
-      margin: 20px 0;
-      animation: pulse 1s ease-in-out infinite;
-    }
+  #cloud-bot.sleepy .eye-pupil { animation: sleepy-eyes 3s ease-in-out infinite; }
+  @keyframes sleepy-eyes {
+    0%, 100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(0.15); }
+  }
 
-    .final-score-label {
-      font-family: 'Comfortaa', sans-serif;
-      font-size: 20px;
-      color: #fff;
-      font-weight: 700;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
+  #cloud-bot.dead .eye-pupil { animation: none; }
 
-    .high-score-text {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 14px;
-      color: #fff;
-      margin: 15px 0 30px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
+  .mouth { transition: all 0.3s ease; }
 
-    .new-record {
-      color: #FFD700 !important;
-      animation: bounce 0.6s ease-in-out infinite;
-    }
+  .zzz {
+    opacity: 0; font-size: 16px; font-weight: 700;
+    fill: rgba(180,200,255,0.7); transition: opacity 0.5s ease;
+  }
+  #cloud-bot.sleepy .zzz { opacity: 1; }
+  .zzz-1 { animation: float-z 2s ease-in-out infinite; }
+  .zzz-2 { animation: float-z 2s ease-in-out 0.4s infinite; }
+  .zzz-3 { animation: float-z 2s ease-in-out 0.8s infinite; }
+  @keyframes float-z {
+    0% { transform: translate(0,0) scale(0.8); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translate(15px,-20px) scale(1.1); opacity: 0; }
+  }
 
-    @keyframes titleBounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
+  .surprise-mark {
+    opacity: 0; transition: opacity 0.15s ease;
+    font-size: 22px; font-weight: 700; fill: #ffdd57;
+  }
+  #cloud-bot.surprised .surprise-mark {
+    opacity: 1; animation: pop-surprise 0.4s ease-out;
+  }
+  @keyframes pop-surprise {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.3) translateY(-5px); }
+    100% { transform: scale(1); }
+  }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
+  .sparkle {
+    position: fixed; pointer-events: none; z-index: 99;
+    border-radius: 50%; animation: sparkle-fade 0.8s ease-out forwards;
+  }
+  @keyframes sparkle-fade {
+    0% { transform: scale(1) translateY(0); opacity: 0.9; }
+    100% { transform: scale(0) translateY(20px); opacity: 0; }
+  }
 
-    @keyframes bounce {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
-    }
+  .mini-cloud {
+    position: fixed; pointer-events: none; z-index: 98;
+    opacity: 0.6; animation: cloud-trail 1s ease-out forwards;
+  }
+  @keyframes cloud-trail {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(0.2) translateY(15px); opacity: 0; }
+  }
 
-    @media (max-width: 640px) {
-      #score-display {
-        font-size: 16px;
-      }
-    }
-  </style>
+  #ground-shadow {
+    position: fixed; bottom: 40px; width: 100px; height: 20px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.25) 0%, transparent 70%);
+    border-radius: 50%; z-index: 99; pointer-events: none;
+  }
+
+  .hint {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    color: rgba(180,190,230,0.5); font-size: 14px; letter-spacing: 2px;
+    text-transform: uppercase; z-index: 10;
+    animation: hint-fade 4s ease-in-out infinite alternate;
+    transition: opacity 0.6s ease;
+  }
+  @keyframes hint-fade {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+  }
+  .hint.hidden { opacity: 0 !important; animation: none; }
+
+  @keyframes death-shake {
+    0%, 100% { transform: translate(var(--bx), var(--by)); }
+    20% { transform: translate(calc(var(--bx) - 8px), calc(var(--by) - 4px)); }
+    40% { transform: translate(calc(var(--bx) + 8px), calc(var(--by) + 4px)); }
+    60% { transform: translate(calc(var(--bx) - 6px), calc(var(--by) - 2px)); }
+    80% { transform: translate(calc(var(--bx) + 4px), calc(var(--by) + 6px)); }
+  }
+  #cloud-bot.dead {
+    filter: drop-shadow(0 0 20px rgba(255,80,80,0.8)) saturate(0.3) brightness(0.7);
+    animation: death-shake 0.5s ease-out;
+  }
+
+  .back-link, .fullscreen-btn {
+    position: fixed; z-index: 200;
+    background: rgba(30, 15, 60, 0.7);
+    color: rgba(200,190,255,0.8);
+    border: 1px solid rgba(200,190,255,0.4);
+    padding: 10px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+    cursor: pointer;
+    font-family: 'Quicksand', sans-serif;
+  }
+  .back-link:hover, .fullscreen-btn:hover {
+    color: rgba(255,255,255,0.95);
+    border-color: rgba(255,255,255,0.6);
+    background: rgba(30, 15, 60, 0.9);
+  }
+  .back-link { top: 20px; left: 20px; }
+  .fullscreen-btn { top: 20px; right: 20px; border: none; }
+
+  body.fullscreen-active .back-link {
+    top: 20px; left: 20px;
+  }
+  body.fullscreen-active .fullscreen-btn {
+    top: 20px; right: 20px;
+  }
+</style>
 </head>
 <body>
 
+<a href="../../" class="back-link">← MENU</a>
+<button id="fullscreen-btn" class="fullscreen-btn">⛶ FULLSCREEN</button>
+
+<div class="stars-layer" id="stars"></div>
+<div class="moon"></div>
 <canvas id="game-canvas"></canvas>
 
-<div class="ui-container">
-  <div id="score-display">SCORE: 0</div>
-  <div id="high-score-display">HI: 0</div>
+<div id="cloud-bot">
+  <svg width="160" height="140" viewBox="0 0 160 140">
+    <g class="cloud-body">
+      <ellipse cx="80" cy="78" rx="55" ry="32" fill="url(#cloudGrad)" />
+      <ellipse cx="50" cy="70" rx="32" ry="28" fill="url(#cloudGrad)" />
+      <ellipse cx="110" cy="70" rx="30" ry="26" fill="url(#cloudGrad)" />
+      <ellipse cx="65" cy="55" rx="28" ry="24" fill="url(#cloudGrad)" />
+      <ellipse cx="95" cy="52" rx="26" ry="22" fill="url(#cloudGrad)" />
+      <ellipse cx="80" cy="48" rx="22" ry="20" fill="url(#cloudGrad)" />
+      <ellipse cx="75" cy="68" rx="40" ry="22" fill="url(#innerGlow)" opacity="0.5" />
+      <ellipse class="blush" cx="52" cy="80" rx="10" ry="5" fill="rgba(255,150,180,0.35)" />
+      <ellipse class="blush" cx="108" cy="80" rx="10" ry="5" fill="rgba(255,150,180,0.35)" />
+
+      <g class="eye" id="left-eye">
+        <g class="eye-pupil" id="left-pupil">
+          <ellipse cx="65" cy="70" rx="7" ry="8" fill="#2a1f4e" />
+          <ellipse cx="63" cy="67" rx="2.5" ry="3" fill="#fff" opacity="0.9" />
+          <ellipse cx="67" cy="72" rx="1.5" ry="1.5" fill="#fff" opacity="0.5" />
+        </g>
+      </g>
+      <g class="eye" id="right-eye">
+        <g class="eye-pupil" id="right-pupil">
+          <ellipse cx="95" cy="70" rx="7" ry="8" fill="#2a1f4e" />
+          <ellipse cx="93" cy="67" rx="2.5" ry="3" fill="#fff" opacity="0.9" />
+          <ellipse cx="97" cy="72" rx="1.5" ry="1.5" fill="#fff" opacity="0.5" />
+        </g>
+      </g>
+
+      <g id="dead-eyes" opacity="0">
+        <line x1="58" y1="63" x2="72" y2="77" stroke="#2a1f4e" stroke-width="3" stroke-linecap="round"/>
+        <line x1="72" y1="63" x2="58" y2="77" stroke="#2a1f4e" stroke-width="3" stroke-linecap="round"/>
+        <line x1="88" y1="63" x2="102" y2="77" stroke="#2a1f4e" stroke-width="3" stroke-linecap="round"/>
+        <line x1="102" y1="63" x2="88" y2="77" stroke="#2a1f4e" stroke-width="3" stroke-linecap="round"/>
+      </g>
+
+      <path class="mouth" id="mouth" d="M 72 85 Q 80 93 88 85" stroke="#2a1f4e" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <ellipse class="mouth" id="mouth-surprised" cx="80" cy="88" rx="5" ry="6" fill="#2a1f4e" opacity="0" />
+      <path class="mouth" id="mouth-sleepy" d="M 74 86 Q 80 88 86 86" stroke="#2a1f4e" stroke-width="2" fill="none" stroke-linecap="round" opacity="0" />
+      <path id="mouth-dead" d="M 70 88 Q 75 84 80 88 Q 85 92 90 88" stroke="#2a1f4e" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0"/>
+
+      <text class="zzz zzz-1" x="120" y="45" font-family="Quicksand, sans-serif">z</text>
+      <text class="zzz zzz-2" x="130" y="35" font-family="Quicksand, sans-serif" font-size="14">z</text>
+      <text class="zzz zzz-3" x="138" y="22" font-family="Quicksand, sans-serif" font-size="12">z</text>
+      <text class="surprise-mark" x="115" y="42" font-family="Quicksand, sans-serif">!</text>
+    </g>
+    <defs>
+      <radialGradient id="cloudGrad" cx="40%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#f0eeff" />
+        <stop offset="40%" stop-color="#e0daf5" />
+        <stop offset="100%" stop-color="#c8bde8" />
+      </radialGradient>
+      <radialGradient id="innerGlow" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="#fff" stop-opacity="0.6" />
+        <stop offset="100%" stop-color="#fff" stop-opacity="0" />
+      </radialGradient>
+    </defs>
+  </svg>
 </div>
 
-<div id="start-screen" class="screen-overlay">
-  <div class="game-title">CLOUD<br>BOT!</div>
-  <div class="game-subtitle">Pule entre as nuvens!</div>
-  <div class="instruction">
-    <span class="desktop-only">Mova o mouse para controlar<br>o Cloud Bot</span>
-    <span class="mobile-only" style="display:none;">Toque para controlar<br>o Cloud Bot</span>
-  </div>
-  <button class="play-btn" id="start-btn">JOGAR</button>
-</div>
-
-<div id="gameover-screen" class="screen-overlay hidden">
-  <div class="game-title">GAME OVER</div>
-  <div class="final-score-label">Pontuação</div>
-  <div class="final-score" id="final-score">0</div>
-  <div class="high-score-text" id="gameover-highscore">MELHOR: 0</div>
-  <button class="play-btn" id="restart-btn">JOGAR NOVAMENTE</button>
-</div>
+<div id="ground-shadow"></div>
+<div class="hint" id="hint">passe o mouse por cima da nuvem</div>
 
 <script>
-// ─── CONFIG ───
-var CFG = {
-  canvasWidth: 800,
-  canvasHeight: 600,
-  cloudBotSize: 50,
-  platformWidth: 80,
-  platformHeight: 15,
-  platformSpawnInterval: 1000,
-  platformGravity: 2,
-  platformMinX: 50,
-  powerupChance: 0.08,
-  obstacleChance: 0.05,
-  highScoreKey: 'cloudBotHighScore',
-};
-
-// ─── STATE ───
-var canvas = document.getElementById('game-canvas');
-var ctx = canvas.getContext('2d');
-var gameState = 'menu'; // menu, playing, gameover
-var score = 0;
-var highScore = parseInt(localStorage.getItem(CFG.highScoreKey) || '0');
-var gameTime = 0;
-var mouseX = 0, mouseY = 0;
-var platforms = [];
-var particles = [];
-var powerups = [];
-var obstacles = [];
-var lastPlatformTime = 0;
-var frameCount = 0;
-
-// Cloud Bot object
-var cloudBot = {
-  x: 0,
-  y: 0,
-  width: CFG.cloudBotSize,
-  height: CFG.cloudBotSize,
-  velocityY: 0,
-  velocityX: 0,
-  onPlatform: false,
-  eyeBlinkTime: 0
-};
-
-// ─── RESIZE ───
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  cloudBot.x = canvas.width / 2;
-  cloudBot.y = canvas.height - 150;
+// --- Stars ---
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 120; i++) {
+  const star = document.createElement('div');
+  star.className = 'star';
+  const size = Math.random() * 2.5 + 0.5;
+  star.style.width = size + 'px';
+  star.style.height = size + 'px';
+  star.style.left = Math.random() * 100 + '%';
+  star.style.top = Math.random() * 100 + '%';
+  star.style.setProperty('--dur', (2 + Math.random() * 4) + 's');
+  star.style.setProperty('--max-op', (0.4 + Math.random() * 0.6));
+  star.style.animationDelay = (Math.random() * 4) + 's';
+  starsEl.appendChild(star);
 }
 
-window.addEventListener('resize', resize);
-resize();
+function createShootingStar() {
+  const el = document.createElement('div');
+  el.className = 'shooting-star';
+  el.style.top = (Math.random() * 40) + '%';
+  el.style.left = (Math.random() * 60) + '%';
+  el.style.transform = `rotate(${25 + Math.random() * 20}deg)`;
+  el.style.animation = `shoot ${0.8 + Math.random() * 0.4}s ease-out forwards`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+setInterval(createShootingStar, 7000 + Math.random() * 4000);
 
-// ─── INPUT ───
-var touchActive = false;
+// --- Canvas setup ---
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
 
-document.addEventListener('mousemove', function(e) {
-  if (!touchActive && gameState === 'playing') {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+// Mobile detection and hint update
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// --- Cloud Bot refs ---
+const bot = document.getElementById('cloud-bot');
+const shadow = document.getElementById('ground-shadow');
+const mouth = document.getElementById('mouth');
+const mouthSurprised = document.getElementById('mouth-surprised');
+const mouthSleepy = document.getElementById('mouth-sleepy');
+const mouthDead = document.getElementById('mouth-dead');
+const deadEyes = document.getElementById('dead-eyes');
+const hintEl = document.getElementById('hint');
+
+// Update hint for mobile
+if (isMobile) {
+  hintEl.textContent = 'toque na nuvem';
+}
+
+// --- State ---
+let mouseX = window.innerWidth / 2;
+let mouseY = window.innerHeight / 2;
+let botX = window.innerWidth / 2;
+let botY = window.innerHeight / 2;
+let targetX = botX;
+let targetY = botY;
+let prevMouseX = mouseX;
+let prevMouseY = mouseY;
+let velocity = 0;
+let idleTime = 0;
+let lastMoveTime = Date.now();
+let currentExpression = 'happy';
+let sparkleTimer = 0;
+let prevBotX = botX;
+let prevBotY = botY;
+let isOverCloud = false;
+
+// --- Game state ---
+let gameState = 'waiting';
+let score = 0;
+let obstacles = [];
+let frameCount = 0;
+let deathTime = 0;
+
+const OBSTACLE_SPEED_BASE = 1.4;
+const OBSTACLE_WIDTH = 150;
+const GAP_SIZE = 210;
+const SPAWN_INTERVAL = 210;
+const HIT_RX = 40;
+const HIT_RY = 26;
+const CLOUD_HIT_RX = 62;
+const CLOUD_HIT_RY = 44;
+
+const SPARKLE_COLORS = [
+  'rgba(180,160,255,0.8)', 'rgba(255,200,230,0.7)',
+  'rgba(200,220,255,0.8)', 'rgba(255,240,180,0.7)', 'rgba(180,255,220,0.6)',
+];
+
+function getObstacleSpeed() {
+  return OBSTACLE_SPEED_BASE + Math.floor(score / 5) * 0.2;
+}
+
+function isMouseOverCloud(mx, my) {
+  const dx = (mx - botX) / CLOUD_HIT_RX;
+  const dy = (my - (botY - 8)) / CLOUD_HIT_RY;
+  return (dx * dx + dy * dy) <= 1;
+}
+
+function handlePositionChange(x, y) {
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+  mouseX = x;
+  mouseY = y;
+
+  const wasOverCloud = isOverCloud;
+  isOverCloud = isMouseOverCloud(mouseX, mouseY);
+
+  if (isOverCloud && gameState !== 'dead') {
+    const dx = mouseX - prevMouseX;
+    const dy = mouseY - prevMouseY;
+    const speed = Math.sqrt(dx * dx + dy * dy);
+
+    targetX = mouseX;
+    targetY = mouseY;
+
+    if (idleTime > 2000 && speed > 80) {
+      setExpression('surprised');
+      setTimeout(() => { if (currentExpression === 'surprised') setExpression('happy'); }, 600);
+    }
+
+    lastMoveTime = Date.now();
+    idleTime = 0;
+
+    if (gameState === 'waiting') {
+      gameState = 'playing';
+      hintEl.classList.add('hidden');
+    }
+  }
+
+  if (isOverCloud && gameState === 'dead' && Date.now() - deathTime > 1500) {
+    restartGame();
+  }
+
+  if (isOverCloud !== wasOverCloud) {
+    bot.classList.toggle('hovered', isOverCloud && gameState !== 'dead');
+    document.body.style.cursor = isOverCloud ? 'none' : 'default';
+  }
+}
+
+document.addEventListener('mousemove', (e) => {
+  handlePositionChange(e.clientX, e.clientY);
+});
+
+document.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length > 0) {
+    const touch = e.touches[0];
+    handlePositionChange(touch.clientX, touch.clientY);
+  }
+}, { passive: false });
+
+document.addEventListener('touchstart', (e) => {
+  if (e.touches.length > 0) {
+    const touch = e.touches[0];
+    handlePositionChange(touch.clientX, touch.clientY);
   }
 });
 
-document.addEventListener('touchstart', function(e) {
-  touchActive = true;
-  if (gameState === 'playing') {
-    var touch = e.touches[0];
-    mouseX = touch.clientX;
-    mouseY = touch.clientY;
+function setExpression(expr) {
+  currentExpression = expr;
+  bot.classList.remove('moving', 'sleepy', 'surprised', 'dead');
+
+  mouth.style.opacity = '0';
+  mouthSurprised.style.opacity = '0';
+  mouthSleepy.style.opacity = '0';
+  mouthDead.style.opacity = '0';
+  deadEyes.style.opacity = '0';
+  document.getElementById('left-eye').style.opacity = '1';
+  document.getElementById('right-eye').style.opacity = '1';
+
+  switch (expr) {
+    case 'happy':
+      mouth.setAttribute('d', 'M 72 85 Q 80 93 88 85');
+      mouth.style.opacity = '1';
+      break;
+    case 'excited':
+      bot.classList.add('moving');
+      mouth.setAttribute('d', 'M 70 84 Q 80 96 90 84');
+      mouth.style.opacity = '1';
+      break;
+    case 'sleepy':
+      bot.classList.add('sleepy');
+      mouthSleepy.style.opacity = '1';
+      break;
+    case 'surprised':
+      bot.classList.add('surprised');
+      mouthSurprised.style.opacity = '1';
+      break;
+    case 'dead':
+      bot.classList.add('dead');
+      mouthDead.style.opacity = '1';
+      deadEyes.style.opacity = '1';
+      document.getElementById('left-eye').style.opacity = '0';
+      document.getElementById('right-eye').style.opacity = '0';
+      break;
   }
-}, { passive: false });
-
-document.addEventListener('touchmove', function(e) {
-  if (gameState === 'playing') {
-    e.preventDefault();
-    var touch = e.touches[0];
-    mouseX = touch.clientX;
-    mouseY = touch.clientY;
-  }
-}, { passive: false });
-
-document.addEventListener('touchend', function(e) {
-  touchActive = false;
-}, { passive: false });
-
-// Disable pull-to-refresh
-document.addEventListener('touchmove', function(e) {
-  if (e.touches.length > 1) return;
-  var touch = e.touches[0];
-  if (window.scrollY === 0 && touch.clientY > 100) {
-    e.preventDefault();
-  }
-}, { passive: false });
-
-// ─── DRAW CLOUD BOT ───
-function drawCloudBot(x, y, size, isScared) {
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
-  ctx.beginPath();
-  ctx.ellipse(x, y + size * 0.4, size * 0.45, size * 0.15, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Cloud body (3 circles)
-  ctx.fillStyle = '#FFFFFF';
-  ctx.strokeStyle = '#E8F4F8';
-  ctx.lineWidth = 2;
-
-  // Main body
-  ctx.beginPath();
-  ctx.arc(x, y + size * 0.1, size * 0.35, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Left bump
-  ctx.beginPath();
-  ctx.arc(x - size * 0.25, y + size * 0.05, size * 0.28, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Right bump
-  ctx.beginPath();
-  ctx.arc(x + size * 0.25, y + size * 0.05, size * 0.28, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Antenna
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(x, y - size * 0.25);
-  ctx.lineTo(x, y - size * 0.45);
-  ctx.stroke();
-
-  // Antenna ball
-  ctx.fillStyle = '#FF6B6B';
-  ctx.beginPath();
-  ctx.arc(x, y - size * 0.48, size * 0.08, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Eyes
-  var eyeOffsetY = isScared ? -size * 0.05 : size * 0.05;
-  var eyeSize = size * 0.12;
-
-  // Left eye
-  ctx.fillStyle = '#333';
-  ctx.beginPath();
-  ctx.arc(x - size * 0.15, y + eyeOffsetY, eyeSize, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Right eye
-  ctx.beginPath();
-  ctx.arc(x + size * 0.15, y + eyeOffsetY, eyeSize, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Eye shine
-  ctx.fillStyle = '#FFF';
-  ctx.beginPath();
-  ctx.arc(x - size * 0.12, y + eyeOffsetY - size * 0.04, size * 0.05, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(x + size * 0.12, y + eyeOffsetY - size * 0.04, size * 0.05, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Mouth
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  if (isScared) {
-    ctx.moveTo(x - size * 0.12, y + size * 0.22);
-    ctx.quadraticCurveTo(x, y + size * 0.28, x + size * 0.12, y + size * 0.22);
-  } else {
-    ctx.moveTo(x - size * 0.12, y + size * 0.22);
-    ctx.quadraticCurveTo(x, y + size * 0.26, x + size * 0.12, y + size * 0.22);
-  }
-  ctx.stroke();
-
-  ctx.restore();
 }
 
-// ─── DRAW PLATFORM ───
-function drawPlatform(x, y, width, height, type) {
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-
-  if (type === 'obstacle') {
-    // Dark cloud obstacle
-    ctx.fillStyle = '#4A90A4';
-    ctx.strokeStyle = '#2C5670';
-  } else if (type === 'powerup-host') {
-    // Golden platform
-    ctx.fillStyle = '#FFD700';
-    ctx.strokeStyle = '#FFA500';
-  } else {
-    // Normal cloud platform
-    ctx.fillStyle = '#B0E0E6';
-    ctx.strokeStyle = '#87CEEB';
-  }
-
-  ctx.lineWidth = 2;
-
-  // Main platform body
-  ctx.beginPath();
-  ctx.roundRect(x - width / 2, y, width, height, 5);
-  ctx.fill();
-  ctx.stroke();
-
-  // Cloud puff effect
-  var puffSize = height * 0.8;
-  ctx.beginPath();
-  ctx.arc(x - width * 0.25, y - puffSize * 0.3, puffSize * 0.4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(x + width * 0.25, y - puffSize * 0.3, puffSize * 0.4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Add shine for powerup platforms
-  if (type === 'powerup-host') {
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = '#FFF';
-    ctx.beginPath();
-    ctx.ellipse(x - width * 0.15, y + height * 0.3, width * 0.25, height * 0.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
+function createSparkle(x, y) {
+  const el = document.createElement('div');
+  el.className = 'sparkle';
+  const color = SPARKLE_COLORS[Math.floor(Math.random() * SPARKLE_COLORS.length)];
+  el.style.background = color;
+  el.style.boxShadow = `0 0 6px ${color}`;
+  el.style.left = (x + (Math.random() - 0.5) * 40) + 'px';
+  el.style.top = (y + (Math.random() - 0.5) * 20 + 20) + 'px';
+  const size = 3 + Math.random() * 6;
+  el.style.width = size + 'px';
+  el.style.height = size + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 800);
 }
 
-// ─── DRAW POWERUP ───
-function drawPowerup(x, y, type) {
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-
-  if (type === 'star') {
-    ctx.fillStyle = '#FFD700';
-    // Draw star
-    drawStar(x, y, 5, 12, 6);
-  } else {
-    ctx.fillStyle = '#FF6B6B';
-    // Draw lightning bolt
-    ctx.beginPath();
-    ctx.moveTo(x, y - 10);
-    ctx.lineTo(x - 3, y);
-    ctx.lineTo(x, y - 2);
-    ctx.lineTo(x + 5, y + 8);
-    ctx.lineTo(x + 2, y + 2);
-    ctx.lineTo(x, y + 8);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  // Glow effect
-  ctx.globalAlpha = 0.4;
-  ctx.strokeStyle = ctx.fillStyle;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(x, y, 15, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.restore();
+function createMiniCloud(x, y) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '30');
+  svg.setAttribute('height', '20');
+  svg.setAttribute('viewBox', '0 0 30 20');
+  svg.classList.add('mini-cloud');
+  svg.style.left = (x + (Math.random() - 0.5) * 30) + 'px';
+  svg.style.top = (y + 15 + Math.random() * 10) + 'px';
+  const e1 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  e1.setAttribute('cx','15'); e1.setAttribute('cy','12');
+  e1.setAttribute('rx','12'); e1.setAttribute('ry','7');
+  e1.setAttribute('fill','rgba(200,190,240,0.4)');
+  const e2 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  e2.setAttribute('cx','10'); e2.setAttribute('cy','10');
+  e2.setAttribute('rx','8'); e2.setAttribute('ry','6');
+  e2.setAttribute('fill','rgba(200,190,240,0.3)');
+  svg.appendChild(e1); svg.appendChild(e2);
+  document.body.appendChild(svg);
+  setTimeout(() => svg.remove(), 1000);
 }
 
-function drawStar(cx, cy, spikes, outerRadius, innerRadius) {
-  var rot = Math.PI / 2 * 3;
-  var step = Math.PI / spikes;
-
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - outerRadius);
-  for (var i = 0; i < spikes; i++) {
-    ctx.lineTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
-    rot += step;
-
-    ctx.lineTo(cx + Math.cos(rot) * innerRadius, cy + Math.sin(rot) * innerRadius);
-    rot += step;
-  }
-  ctx.lineTo(cx, cy - outerRadius);
-  ctx.closePath();
-  ctx.fill();
-}
-
-// ─── SPAWN ───
-function spawnPlatform() {
-  var x = Math.random() * (canvas.width - CFG.platformWidth * 2) + CFG.platformWidth;
-  var type = 'normal';
-
-  if (Math.random() < CFG.powerupChance) {
-    type = 'powerup-host';
-  } else if (Math.random() < CFG.obstacleChance) {
-    type = 'obstacle';
-  }
-
-  platforms.push({
-    x: x,
-    y: -CFG.platformHeight,
-    width: CFG.platformWidth,
-    height: CFG.platformHeight,
-    velocityY: CFG.platformGravity + (gameTime / 30000), // Speed increases
-    type: type,
-    hasSpawnedPowerup: false
+function spawnObstacle() {
+  const margin = 80;
+  const minGapY = GAP_SIZE / 2 + margin;
+  const maxGapY = window.innerHeight - GAP_SIZE / 2 - margin;
+  obstacles.push({
+    x: window.innerWidth + OBSTACLE_WIDTH / 2 + 30,
+    gapCenterY: minGapY + Math.random() * (maxGapY - minGapY),
+    passed: false,
+    lightningTimer: Math.random() * 60,
   });
 }
 
-function spawnParticles(x, y, color, count) {
-  for (var i = 0; i < count; i++) {
-    var angle = (Math.PI * 2 * i) / count;
-    var speed = 2 + Math.random() * 3;
-    particles.push({
-      x: x,
-      y: y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 1,
-      decay: 0.02 + Math.random() * 0.01,
-      size: 3 + Math.random() * 3,
-      color: color
-    });
-  }
+function checkCollision(obs) {
+  if (Math.abs(botX - obs.x) > (OBSTACLE_WIDTH / 2 + HIT_RX - 10)) return false;
+  const gapTop = obs.gapCenterY - GAP_SIZE / 2;
+  const gapBottom = obs.gapCenterY + GAP_SIZE / 2;
+  return (botY - HIT_RY < gapTop) || (botY + HIT_RY > gapBottom);
 }
 
-// ─── COLLISION ───
-function checkPlatformCollision() {
-  for (var i = 0; i < platforms.length; i++) {
-    var p = platforms[i];
-    if (cloudBot.velocityY >= 0 &&
-        cloudBot.y + cloudBot.height >= p.y &&
-        cloudBot.y + cloudBot.height <= p.y + p.height + 10 &&
-        cloudBot.x + cloudBot.width / 2 > p.x - p.width / 2 &&
-        cloudBot.x + cloudBot.width / 2 < p.x + p.width / 2) {
-
-      cloudBot.velocityY = -15;
-      cloudBot.onPlatform = true;
-
-      if (p.type === 'normal') {
-        score += 10;
-        spawnParticles(p.x, p.y, '#87CEEB', 8);
-      } else if (p.type === 'powerup-host') {
-        if (!p.hasSpawnedPowerup) {
-          score += 25;
-          var type = Math.random() > 0.5 ? 'star' : 'lightning';
-          powerups.push({
-            x: p.x,
-            y: p.y - 20,
-            type: type,
-            life: 1
-          });
-          p.hasSpawnedPowerup = true;
-          spawnParticles(p.x, p.y, '#FFD700', 12);
-        }
-      } else if (p.type === 'obstacle') {
-        // Get pushed away
-        cloudBot.velocityX = cloudBot.x < p.x ? -10 : 10;
-        cloudBot.velocityY = -8;
-      }
-      break;
-    }
-  }
+function killPlayer() {
+  gameState = 'dead';
+  deathTime = Date.now();
+  setExpression('dead');
+  isOverCloud = false;
+  bot.classList.remove('hovered');
+  document.body.style.cursor = 'default';
 }
 
-// ─── GAME LOGIC ───
-function startGame() {
-  gameState = 'playing';
-  score = 0;
-  gameTime = 0;
-  cloudBot.x = canvas.width / 2;
-  cloudBot.y = canvas.height - 150;
-  cloudBot.velocityY = 0;
-  cloudBot.velocityX = 0;
-  platforms = [];
-  particles = [];
-  powerups = [];
+function restartGame() {
   obstacles = [];
-  lastPlatformTime = 0;
-
-  document.getElementById('start-screen').classList.add('hidden');
-  document.getElementById('gameover-screen').classList.add('hidden');
-  updateScoreDisplay();
+  score = 0;
+  frameCount = 0;
+  gameState = 'playing';
+  setExpression('happy');
+  hintEl.classList.add('hidden');
 }
 
-function gameOver() {
-  gameState = 'gameover';
-  spawnParticles(cloudBot.x, cloudBot.y, '#FF6B6B', 30);
-
-  var isNewRecord = score > highScore;
-  if (isNewRecord) {
-    highScore = score;
-    localStorage.setItem(CFG.highScoreKey, String(highScore));
+function drawCloudPuff(x, y, rx, ry, dark) {
+  const grad = ctx.createRadialGradient(x - rx*0.2, y - ry*0.2, 0, x, y, Math.max(rx, ry));
+  if (dark) {
+    grad.addColorStop(0, 'rgba(45, 28, 70, 0.97)');
+    grad.addColorStop(0.5, 'rgba(22, 12, 48, 0.98)');
+    grad.addColorStop(1, 'rgba(8, 4, 22, 0.99)');
+  } else {
+    grad.addColorStop(0, 'rgba(60, 35, 85, 0.95)');
+    grad.addColorStop(1, 'rgba(15, 8, 35, 0.98)');
   }
-
-  setTimeout(function() {
-    document.getElementById('final-score').textContent = String(score);
-    var hsEl = document.getElementById('gameover-highscore');
-    if (isNewRecord) {
-      hsEl.textContent = '⭐ NOVO RECORDE! ⭐';
-      hsEl.classList.add('new-record');
-    } else {
-      hsEl.textContent = 'MELHOR: ' + highScore;
-      hsEl.classList.remove('new-record');
-    }
-    document.getElementById('gameover-screen').classList.remove('hidden');
-  }, 200);
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
 }
 
-function updateScoreDisplay() {
-  document.getElementById('score-display').textContent = 'SCORE: ' + score;
-  document.getElementById('high-score-display').textContent = 'HI: ' + highScore;
-}
+function drawAngryFace(x, y, flipped) {
+  const eyeY = y + (flipped ? 6 : -6);
+  const browY = y + (flipped ? -2 : 2);
 
-// ─── UPDATE ───
-function update(dt) {
-  if (gameState !== 'playing') return;
-
-  gameTime += dt;
-  frameCount++;
-
-  // Mouse following
-  var targetX = mouseX;
-  cloudBot.x += (targetX - cloudBot.x) * 0.2;
-  cloudBot.x = Math.max(cloudBot.width / 2, Math.min(canvas.width - cloudBot.width / 2, cloudBot.x));
-
-  // Gravity
-  cloudBot.velocityY += 0.5;
-  cloudBot.velocityX *= 0.95;
-
-  // Update position
-  cloudBot.x += cloudBot.velocityX;
-  cloudBot.y += cloudBot.velocityY;
-
-  // Wrap around edges
-  if (cloudBot.x < 0) cloudBot.x = canvas.width;
-  if (cloudBot.x > canvas.width) cloudBot.x = 0;
-
-  // Update platforms
-  for (var i = platforms.length - 1; i >= 0; i--) {
-    platforms[i].y += platforms[i].velocityY;
-    if (platforms[i].y > canvas.height) {
-      platforms.splice(i, 1);
-    }
-  }
-
-  // Spawn new platforms
-  if (gameTime - lastPlatformTime > Math.max(400, CFG.platformSpawnInterval - gameTime / 50)) {
-    spawnPlatform();
-    lastPlatformTime = gameTime;
-  }
-
-  // Update powerups
-  for (var j = 0; j < powerups.length; j++) {
-    var pu = powerups[j];
-    pu.y += 1;
-
-    // Check collision with cloudBot
-    var dist = Math.hypot(pu.x - cloudBot.x, pu.y - cloudBot.y);
-    if (dist < cloudBot.width / 2 + 15) {
-      score += (pu.type === 'star' ? 25 : 15);
-      spawnParticles(pu.x, pu.y, pu.type === 'star' ? '#FFD700' : '#FF6B6B', 10);
-      powerups.splice(j, 1);
-      j--;
-    }
-  }
-
-  // Update particles
-  for (var p = particles.length - 1; p >= 0; p--) {
-    particles[p].x += particles[p].vx;
-    particles[p].y += particles[p].vy;
-    particles[p].vy += 0.1;
-    particles[p].life -= particles[p].decay;
-    if (particles[p].life <= 0) particles.splice(p, 1);
-  }
-
-  // Check collisions
-  cloudBot.onPlatform = false;
-  checkPlatformCollision();
-
-  // Game over
-  if (cloudBot.y > canvas.height) {
-    gameOver();
-  }
-
-  updateScoreDisplay();
-}
-
-// ─── RENDER ───
-function render() {
-  // Background
-  ctx.fillStyle = 'rgba(135, 206, 235, 0.8)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Gradient overlay
-  var gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  gradient.addColorStop(0, 'rgba(200, 230, 255, 0.3)');
-  gradient.addColorStop(1, 'rgba(100, 180, 255, 0.3)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Draw platforms
-  for (var i = 0; i < platforms.length; i++) {
-    drawPlatform(platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height, platforms[i].type);
-  }
-
-  // Draw powerups
-  for (var j = 0; j < powerups.length; j++) {
-    drawPowerup(powerups[j].x, powerups[j].y, powerups[j].type);
-  }
-
-  // Draw particles
-  for (var p = 0; p < particles.length; p++) {
-    var particle = particles[p];
-    ctx.globalAlpha = particle.life;
-    ctx.fillStyle = particle.color;
+  [-16, 16].forEach((ox) => {
+    const glowGrad = ctx.createRadialGradient(x + ox, eyeY, 0, x + ox, eyeY, 9);
+    glowGrad.addColorStop(0, 'rgba(255, 100, 80, 1)');
+    glowGrad.addColorStop(0.5, 'rgba(200, 40, 40, 0.8)');
+    glowGrad.addColorStop(1, 'rgba(150, 20, 20, 0)');
     ctx.beginPath();
-    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+    ctx.arc(x + ox, eyeY, 9, 0, Math.PI * 2);
+    ctx.fillStyle = glowGrad;
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + ox, eyeY, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#0a0010';
+    ctx.fill();
+  });
+
+  ctx.strokeStyle = 'rgba(255, 70, 60, 0.9)';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - 24, browY + (flipped ? 5 : -5));
+  ctx.lineTo(x - 8, browY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + 8, browY);
+  ctx.lineTo(x + 24, browY + (flipped ? 5 : -5));
+  ctx.stroke();
+}
+
+function drawLightningBolt(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = 'rgba(255, 230, 60, 0.85)';
+  ctx.fillStyle = 'rgba(255, 230, 60, 0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = 'rgba(255, 220, 50, 0.8)';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(4, -12);
+  ctx.lineTo(-2, 0);
+  ctx.lineTo(2, 0);
+  ctx.lineTo(-4, 12);
+  ctx.lineTo(6, 1);
+  ctx.lineTo(2, 1);
+  ctx.lineTo(8, -12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawObstacle(obs) {
+  const x = obs.x;
+  const gapTop = obs.gapCenterY - GAP_SIZE / 2;
+  const gapBottom = obs.gapCenterY + GAP_SIZE / 2;
+  const hw = OBSTACLE_WIDTH / 2;
+
+  if (gapTop > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x - hw - 15, -10, OBSTACLE_WIDTH + 30, gapTop + 10);
+    ctx.clip();
+
+    const topGrad = ctx.createLinearGradient(x - hw, 0, x + hw, gapTop);
+    topGrad.addColorStop(0, 'rgba(12, 6, 30, 0.96)');
+    topGrad.addColorStop(1, 'rgba(30, 15, 55, 0.97)');
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(x - hw - 15, -10, OBSTACLE_WIDTH + 30, gapTop + 10);
+
+    const puffR = 30;
+    const n = Math.ceil(OBSTACLE_WIDTH / (puffR * 1.5)) + 1;
+    for (let i = 0; i < n; i++) {
+      const px = x - hw + i * (OBSTACLE_WIDTH / (n - 1));
+      drawCloudPuff(px, gapTop + 2, puffR + 4, puffR - 4, i % 2 === 0);
+    }
+    for (let i = 0; i < n - 1; i++) {
+      const px = x - hw + (i + 0.5) * (OBSTACLE_WIDTH / (n - 1));
+      drawCloudPuff(px, gapTop - puffR * 0.7, puffR * 0.85, puffR * 0.7, true);
+    }
+
+    const rimGrad = ctx.createLinearGradient(0, gapTop - 25, 0, gapTop);
+    rimGrad.addColorStop(0, 'rgba(180,40,40,0)');
+    rimGrad.addColorStop(1, 'rgba(220,60,50,0.35)');
+    ctx.fillStyle = rimGrad;
+    ctx.fillRect(x - hw, gapTop - 25, OBSTACLE_WIDTH, 25);
+
+    ctx.restore();
+
+    if (gapTop > 70) {
+      drawAngryFace(x, gapTop - 42, false);
+    }
   }
-  ctx.globalAlpha = 1;
 
-  // Draw cloudBot
-  var isScared = cloudBot.y > canvas.height - 100;
-  drawCloudBot(cloudBot.x, cloudBot.y, cloudBot.width, isScared);
+  if (gapBottom < canvas.height) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x - hw - 15, gapBottom, OBSTACLE_WIDTH + 30, canvas.height - gapBottom + 10);
+    ctx.clip();
+
+    const botGrad = ctx.createLinearGradient(x - hw, gapBottom, x + hw, canvas.height);
+    botGrad.addColorStop(0, 'rgba(30, 15, 55, 0.97)');
+    botGrad.addColorStop(1, 'rgba(12, 6, 30, 0.96)');
+    ctx.fillStyle = botGrad;
+    ctx.fillRect(x - hw - 15, gapBottom, OBSTACLE_WIDTH + 30, canvas.height - gapBottom + 10);
+
+    const puffR = 30;
+    const n = Math.ceil(OBSTACLE_WIDTH / (puffR * 1.5)) + 1;
+    for (let i = 0; i < n; i++) {
+      const px = x - hw + i * (OBSTACLE_WIDTH / (n - 1));
+      drawCloudPuff(px, gapBottom - 2, puffR + 4, puffR - 4, i % 2 === 0);
+    }
+    for (let i = 0; i < n - 1; i++) {
+      const px = x - hw + (i + 0.5) * (OBSTACLE_WIDTH / (n - 1));
+      drawCloudPuff(px, gapBottom + puffR * 0.7, puffR * 0.85, puffR * 0.7, true);
+    }
+
+    const rimGrad2 = ctx.createLinearGradient(0, gapBottom, 0, gapBottom + 25);
+    rimGrad2.addColorStop(0, 'rgba(220,60,50,0.35)');
+    rimGrad2.addColorStop(1, 'rgba(180,40,40,0)');
+    ctx.fillStyle = rimGrad2;
+    ctx.fillRect(x - hw, gapBottom, OBSTACLE_WIDTH, 25);
+
+    ctx.restore();
+
+    if (canvas.height - gapBottom > 70) {
+      drawAngryFace(x, gapBottom + 42, true);
+    }
+  }
+
+  obs.lightningTimer += 1;
+  if (Math.floor(obs.lightningTimer) % 90 < 8) {
+    const lx = x + (Math.random() - 0.5) * 30;
+    drawLightningBolt(lx, gapTop - 15, 1.2);
+    drawLightningBolt(lx + 20, gapBottom + 10, 1.0);
+  }
 }
 
-// ─── GAME LOOP ───
-var lastTime = 0;
-function gameLoop(timestamp) {
-  var dt = lastTime ? Math.min(timestamp - lastTime, 50) : 16;
-  lastTime = timestamp;
-
-  update(dt);
-  render();
-
-  requestAnimationFrame(gameLoop);
+function drawScore() {
+  ctx.save();
+  ctx.font = 'bold 52px Quicksand, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.shadowColor = 'rgba(120,90,220,0.9)';
+  ctx.shadowBlur = 25;
+  ctx.fillText(score, canvas.width / 2, 75);
+  ctx.restore();
 }
 
-// ─── EVENT LISTENERS ───
-document.getElementById('start-btn').addEventListener('click', startGame);
-document.getElementById('restart-btn').addEventListener('click', startGame);
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(8, 4, 20, 0.78)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-document.addEventListener('keydown', function(e) {
-  if (e.code === 'Space') {
-    e.preventDefault();
-    if (gameState === 'menu') startGame();
-    else if (gameState === 'gameover') startGame();
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+
+  ctx.save();
+  const panelW = 400, panelH = 200;
+  const panelX = cx - panelW / 2;
+  const panelY = cy - panelH / 2 - 10;
+  const panelGrad = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
+  panelGrad.addColorStop(0, 'rgba(30, 15, 60, 0.9)');
+  panelGrad.addColorStop(1, 'rgba(15, 8, 35, 0.95)');
+  ctx.beginPath();
+  ctx.roundRect(panelX, panelY, panelW, panelH, 20);
+  ctx.fillStyle = panelGrad;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(180, 60, 80, 0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.textAlign = 'center';
+
+  ctx.font = 'bold 52px Quicksand, sans-serif';
+  ctx.fillStyle = '#ff4466';
+  ctx.shadowColor = 'rgba(255,50,80,0.7)';
+  ctx.shadowBlur = 25;
+  ctx.fillText('FIM DE JOGO', cx, cy - 18);
+
+  ctx.font = '600 26px Quicksand, sans-serif';
+  ctx.fillStyle = 'rgba(210,195,255,0.95)';
+  ctx.shadowBlur = 8;
+  ctx.fillText(`Pontuação: ${score}`, cx, cy + 25);
+
+  if (Date.now() - deathTime > 1500) {
+    ctx.font = '16px Quicksand, sans-serif';
+    ctx.fillStyle = 'rgba(160, 150, 210, 0.7)';
+    ctx.shadowBlur = 0;
+    ctx.fillText('passe o mouse pela nuvem para recomeçar', cx, cy + 70);
+  }
+
+  ctx.restore();
+}
+
+function animate() {
+  const now = Date.now();
+  idleTime = now - lastMoveTime;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (gameState === 'playing') {
+    frameCount++;
+
+    if (frameCount % SPAWN_INTERVAL === 1) spawnObstacle();
+
+    const speed = getObstacleSpeed();
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const obs = obstacles[i];
+      obs.x -= speed;
+
+      if (!obs.passed && obs.x < botX - OBSTACLE_WIDTH / 2) {
+        obs.passed = true;
+        score++;
+      }
+
+      if (obs.x < -OBSTACLE_WIDTH) {
+        obstacles.splice(i, 1);
+        continue;
+      }
+
+      if (checkCollision(obs)) {
+        killPlayer();
+        break;
+      }
+
+      drawObstacle(obs);
+    }
+
+    drawScore();
+  } else if (gameState === 'dead') {
+    obstacles.forEach(drawObstacle);
+    drawGameOver();
+  }
+
+  const ease = (isOverCloud && gameState !== 'dead') ? 0.09 : 0.03;
+  const dx = targetX - botX;
+  const dy = targetY - botY;
+  botX += dx * ease;
+  botY += dy * ease;
+
+  const bvx = botX - prevBotX;
+  const bvy = botY - prevBotY;
+  velocity = Math.sqrt(bvx * bvx + bvy * bvy);
+  prevBotX = botX;
+  prevBotY = botY;
+
+  bot.style.transform = `translate(${botX - 80}px, ${botY - 70}px)`;
+
+  shadow.style.left = (botX - 50) + 'px';
+  const distFromBottom = window.innerHeight - botY;
+  const shadowScale = Math.max(0.3, Math.min(1, distFromBottom / 300));
+  shadow.style.transform = `scaleX(${shadowScale})`;
+  shadow.style.opacity = shadowScale * 0.5;
+
+  if (gameState !== 'dead') {
+    if (velocity > 3 && currentExpression !== 'surprised') {
+      if (currentExpression !== 'excited') setExpression('excited');
+    } else if (idleTime > 4000 && gameState === 'waiting' && currentExpression !== 'surprised') {
+      if (currentExpression !== 'sleepy') setExpression('sleepy');
+    } else if (velocity < 1 && idleTime < 4000 && currentExpression !== 'surprised') {
+      if (currentExpression !== 'happy') setExpression('happy');
+    }
+  }
+
+  sparkleTimer++;
+  if (velocity > 2 && sparkleTimer % 3 === 0) createSparkle(botX, botY);
+  if (velocity > 5 && sparkleTimer % 8 === 0) createMiniCloud(botX, botY);
+
+  const eyeDx = mouseX - botX;
+  const eyeDy = mouseY - botY;
+  if (gameState !== 'dead') {
+    const eyeOffsetX = Math.min(3, Math.max(-3, eyeDx * 0.025));
+    const eyeOffsetY = Math.min(2, Math.max(-2, eyeDy * 0.025));
+    document.getElementById('left-eye').style.transform = `translate(${eyeOffsetX}px, ${eyeOffsetY}px)`;
+    document.getElementById('right-eye').style.transform = `translate(${eyeOffsetX}px, ${eyeOffsetY}px)`;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+setExpression('happy');
+animate();
+setTimeout(createShootingStar, 2000);
+
+// --- Fullscreen functionality ---
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const backBtn = document.querySelector('.back-link');
+
+fullscreenBtn.addEventListener('click', () => {
+  const elem = document.documentElement;
+  if (!document.fullscreenElement) {
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(err => console.log('Fullscreen error:', err));
+      document.body.classList.add('fullscreen-active');
+      fullscreenBtn.textContent = '⛶ SAIR FS';
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+      document.body.classList.remove('fullscreen-active');
+      fullscreenBtn.textContent = '⛶ FULLSCREEN';
+    }
   }
 });
 
-// Mobile instruction detection
-if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-  document.querySelector('.desktop-only').style.display = 'none';
-  document.querySelector('.mobile-only').style.display = 'inline';
-}
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.body.classList.remove('fullscreen-active');
+    fullscreenBtn.textContent = '⛶ FULLSCREEN';
+  }
+});
 
-// Init
-updateScoreDisplay();
-requestAnimationFrame(gameLoop);
+// Prevent going to menu during game
+backBtn.addEventListener('click', (e) => {
+  if (gameState === 'playing') {
+    e.preventDefault();
+    const confirmed = confirm('Tem certeza? Seu progresso será perdido.');
+    if (confirmed) {
+      window.location.href = '../../';
+    }
+  }
+});
 </script>
 
 </body>
