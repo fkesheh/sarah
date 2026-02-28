@@ -1342,6 +1342,15 @@ function autofireCheck() {
 }
 requestAnimationFrame(autofireCheck);
 
+// Start screen click — overlay blocks canvas so listen on it directly
+document.getElementById('start-screen').addEventListener('click', () => {
+  if (gameState === 'start') startGame();
+});
+document.getElementById('start-screen').addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (gameState === 'start') startGame();
+}, { passive: false });
+
 canvas.addEventListener('mousedown', (e) => {
   handlePointerDown(e.clientX, e.clientY);
 });
