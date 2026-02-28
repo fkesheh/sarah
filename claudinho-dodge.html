@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudinho Dodge!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Fredoka:wght@400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    background: #e8e0d8;
+    font-family: 'Fredoka', sans-serif;
+    cursor: none;
+    user-select: none;
+  }
+
+  canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+
+  #score-display {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 18px;
+    color: #5a3a2a;
+    text-shadow: 2px 2px 0 rgba(255,255,255,0.6);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+
+  #score-display.visible { opacity: 1; }
+
+  #high-score-display {
+    position: fixed;
+    top: 54px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: #8a7a6a;
+    text-shadow: 1px 1px 0 rgba(255,255,255,0.4);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+
+  #high-score-display.visible { opacity: 1; }
+
+  #food-display {
+    position: fixed;
+    top: 24px;
+    right: 32px;
+    z-index: 20;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    color: #3a8a3a;
+    text-shadow: 1px 1px 0 rgba(255,255,255,0.6);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+
+  #food-display.visible { opacity: 1; }
+
+  .screen-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    transition: opacity 0.5s, backdrop-filter 0.5s;
+  }
+
+  .screen-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+    backdrop-filter: none;
+  }
+
+  #start-screen {
+    background: radial-gradient(ellipse at center, rgba(232,224,216,0.97) 0%, rgba(220,210,198,0.95) 100%);
+  }
+
+  #gameover-screen {
+    background: radial-gradient(ellipse at center, rgba(60,20,20,0.85) 0%, rgba(40,10,10,0.92) 100%);
+    backdrop-filter: blur(6px);
+  }
+
+  .game-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(24px, 5vw, 48px);
+    color: #c08060;
+    text-shadow: 4px 4px 0 #8a5a3a, -1px -1px 0 #e8c0a0;
+    margin-bottom: 12px;
+    animation: titleBounce 2s ease-in-out infinite;
+    letter-spacing: 2px;
+    text-align: center;
+  }
+
+  .game-subtitle {
+    font-family: 'Fredoka', sans-serif;
+    font-size: clamp(14px, 2.5vw, 22px);
+    color: #7a6a5a;
+    margin-bottom: 40px;
+    font-weight: 600;
+  }
+
+  .instruction {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(9px, 1.5vw, 13px);
+    color: #a08a7a;
+    animation: pulse 1.8s ease-in-out infinite;
+    line-height: 1.8;
+    text-align: center;
+  }
+
+  .claudinho-preview {
+    width: 120px;
+    height: 100px;
+    margin-bottom: 30px;
+    image-rendering: pixelated;
+    animation: previewFloat 3s ease-in-out infinite;
+  }
+
+  #gameover-screen .game-title {
+    color: #ff6644;
+    text-shadow: 4px 4px 0 #880022, -1px -1px 0 #ff9977;
+    font-size: clamp(20px, 4vw, 38px);
+  }
+
+  .final-score {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(28px, 5vw, 52px);
+    color: #ffcc44;
+    text-shadow: 3px 3px 0 #aa6600;
+    margin: 16px 0 8px;
+  }
+
+  .final-score-label {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 16px;
+    color: #cc9988;
+    font-weight: 600;
+  }
+
+  .high-score-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: #88aacc;
+    margin: 12px 0 30px;
+  }
+
+  .new-record {
+    color: #ffdd44;
+    animation: pulse 0.6s ease-in-out infinite;
+  }
+
+  .play-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    padding: 16px 32px;
+    background: #c08060;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: 0 4px 0 #8a5a3a, 0 6px 12px rgba(0,0,0,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
+    text-shadow: 1px 1px 0 #8a5a3a;
+  }
+
+  .play-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #8a5a3a, 0 8px 16px rgba(0,0,0,0.3);
+  }
+
+  .play-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #8a5a3a, 0 3px 8px rgba(0,0,0,0.3);
+  }
+
+  @keyframes titleBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  @keyframes previewFloat {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-12px) rotate(2deg); }
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .desktop-only { display: none !important; }
+    .mobile-only { display: inline !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="score-display">SCORE: 0</div>
+<div id="high-score-display">HI: 0</div>
+<div id="food-display">x 0</div>
+<div id="scream-bar-container" style="position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 20; width: 200px; height: 24px; background: #d0c0b0; border: 2px solid #8a7a6a; border-radius: 4px; overflow: hidden; opacity: 0; transition: opacity 0.3s;">
+  <div id="scream-bar-fill" style="height: 100%; background: linear-gradient(90deg, #ff6644, #ffaa44); width: 100%; transition: width 0.1s;"></div>
+</div>
+<div id="scream-status" style="position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); z-index: 20; font-family: 'Press Start 2P', monospace; font-size: 12px; color: #ff6644; text-shadow: 1px 1px 0 rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s; pointer-events: none;">GRITO PRONTO!</div>
+
+<div id="start-screen" class="screen-overlay">
+  <canvas id="claudinho-preview" class="claudinho-preview" width="120" height="100"></canvas>
+  <div class="game-title">CLAUDINHO<br>DODGE!</div>
+  <div class="game-subtitle">Desvie dos inimigos e coma as frutinhas!</div>
+  <div class="instruction" id="instruction-text">
+    <span class="desktop-only">Mova o mouse para controlar<br>Aperte ESPAÇO para soltar um GRITO!</span>
+    <span class="mobile-only" style="display:none;">Toque e arraste para mover<br>Segura e solta para soltar um GRITO!</span>
+  </div>
+  <br><br>
+  <button class="play-btn" id="start-btn">JOGAR</button>
+</div>
+
+<div id="gameover-screen" class="screen-overlay hidden">
+  <div class="game-title">GAME OVER</div>
+  <div class="final-score-label">Pontuacao</div>
+  <div class="final-score" id="final-score">0</div>
+  <div class="high-score-text" id="gameover-highscore">MELHOR: 0</div>
+  <button class="play-btn" id="restart-btn">JOGAR DE NOVO</button>
+</div>
+
+<script>
+// ─── CONFIG ───
+var CFG = {
+  bgColor: '#e8e0d8',
+  dotColor: 'rgba(180,170,158,0.35)',
+  dotSpacing: 28,
+  dotRadius: 1.5,
+  claudinhoW: 60,
+  claudinhoH: 50,
+  followSmooth: 0.12,
+  enemyBaseSpeed: 2.2,
+  enemySpeedIncrease: 0.08,
+  spawnIntervalBase: 1200,
+  spawnIntervalMin: 200,
+  spawnIntervalDecrease: 6,
+  difficultyRampTime: 60000,
+  hitboxShrink: 8,
+  shakeIntensity: 16,
+  shakeDuration: 500,
+  particleCount: 40,
+  foodSpawnInterval: 3000,
+  foodMaxOnScreen: 5,
+  screamCooldown: 2000,
+  screamRange: 280,
+  screamForce: 8,
+  screamDuration: 600,
+};
+
+// ─── STATE ───
+var canvas = document.getElementById('game-canvas');
+var ctx = canvas.getContext('2d');
+var W, H;
+var gameState = 'menu';
+var score = 0;
+var foodScore = 0;
+var highScore = parseInt(localStorage.getItem('claudinhoDodgeHigh') || '0');
+var mouseX = 0, mouseY = 0;
+var claudinho = { x: 0, y: 0, prevX: 0, prevY: 0, legPhase: 0, speed: 0 };
+var enemies = [];
+var foods = [];
+var particles = [];
+var trails = [];
+var screamWaves = [];
+var spawnTimer = 0;
+var foodSpawnTimer = 0;
+var screamReady = true;
+var screamCooldownTimer = 0;
+var spawnInterval = CFG.spawnIntervalBase;
+var enemySpeed = CFG.enemyBaseSpeed;
+var gameTime = 0;
+var scoreAccum = 0;
+var shakeTime = 0;
+var frameCount = 0;
+var lastTime = 0;
+var backgroundDots = [];
+
+// Enemy color schemes for evil characters
+var ENEMY_SCHEMES = [
+  { body: '#cc3333', dark: '#992222', eye: '#ffff44', name: 'red' },
+  { body: '#3366cc', dark: '#224499', eye: '#ff4444', name: 'blue' },
+  { body: '#9933cc', dark: '#662299', eye: '#44ff44', name: 'purple' },
+  { body: '#cc6600', dark: '#994400', eye: '#ff2222', name: 'orange' },
+  { body: '#336633', dark: '#224422', eye: '#ff6666', name: 'darkgreen' },
+];
+
+// ─── RESIZE ───
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  claudinho.x = W / 2;
+  claudinho.y = H / 2;
+  claudinho.prevX = W / 2;
+  claudinho.prevY = H / 2;
+  mouseX = W / 2;
+  mouseY = H / 2;
+  generateBackgroundDots();
+}
+
+function generateBackgroundDots() {
+  backgroundDots = [];
+  for (var x = CFG.dotSpacing; x < W; x += CFG.dotSpacing) {
+    for (var y = CFG.dotSpacing; y < H; y += CFG.dotSpacing) {
+      backgroundDots.push({ x: x, y: y });
+    }
+  }
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// ─── MOUSE & TOUCH ───
+var touchActive = false;
+var touchHoldTimer = 0;
+var touchHoldCharge = 0;
+
+document.addEventListener('mousemove', function(e) {
+  if (!touchActive) {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  }
+});
+
+document.addEventListener('click', function(e) {
+  if (gameState === 'playing' && !touchActive) {
+    useScream();
+  }
+});
+
+// Touch events for mobile
+document.addEventListener('touchstart', function(e) {
+  if (gameState !== 'playing') return;
+  touchActive = true;
+  var touch = e.touches[0];
+  mouseX = touch.clientX;
+  mouseY = touch.clientY;
+  touchHoldTimer = 0;
+  touchHoldCharge = 0;
+}, { passive: false });
+
+document.addEventListener('touchmove', function(e) {
+  if (gameState !== 'playing' || !touchActive) return;
+  e.preventDefault();
+  var touch = e.touches[0];
+  mouseX = touch.clientX;
+  mouseY = touch.clientY;
+  touchHoldTimer += 1;
+  touchHoldCharge = Math.min(1, touchHoldTimer / 30);
+}, { passive: false });
+
+document.addEventListener('touchend', function(e) {
+  if (!touchActive) return;
+  touchActive = false;
+  if (gameState === 'playing' && touchHoldTimer > 10) {
+    useScream();
+  }
+  touchHoldTimer = 0;
+  touchHoldCharge = 0;
+}, { passive: false });
+
+// ─── ROUND RECT HELPER ───
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + w - r, y);
+  c.quadraticCurveTo(x + w, y, x + w, y + r);
+  c.lineTo(x + w, y + h - r);
+  c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  c.lineTo(x + r, y + h);
+  c.quadraticCurveTo(x, y + h, x, y + h - r);
+  c.lineTo(x, y + r);
+  c.quadraticCurveTo(x, y, x + r, y);
+  c.closePath();
+}
+
+// ─── DRAW CLAUDINHO (with animated legs) ───
+function drawClaudinho(cx, cy, w, h, context, legPhase, isMoving, isScreaming) {
+  var px = w / 15;
+  var py = h / 12;
+  var bodyColor = '#c08060';
+  var darkBody = '#a06848';
+  var earColor = '#b07050';
+  var legColor = '#f0e8e0';
+  var noseColor = '#a06050';
+  var cheekColor = 'rgba(200,100,80,0.3)';
+
+  var bx = cx - w / 2;
+  var by = cy - h / 2;
+
+  // Leg animation offsets
+  var legAnim = isMoving ? Math.sin(legPhase) * py * 2 : 0;
+  var legAnimBack = isMoving ? Math.sin(legPhase + Math.PI) * py * 2 : 0;
+
+  context.save();
+  context.imageSmoothingEnabled = false;
+
+  // Shadow
+  context.fillStyle = 'rgba(0,0,0,0.10)';
+  context.beginPath();
+  context.ellipse(cx, by + h + py * 2, w * 0.45, py * 1.5, 0, 0, Math.PI * 2);
+  context.fill();
+
+  // Left front leg
+  context.fillStyle = legColor;
+  context.fillRect(bx + px * 2, by + h - py * 2 + legAnim, px * 2.5, py * 4);
+  context.strokeStyle = darkBody;
+  context.lineWidth = 1;
+  context.strokeRect(bx + px * 2, by + h - py * 2 + legAnim, px * 2.5, py * 4);
+
+  // Right front leg
+  context.fillStyle = legColor;
+  context.fillRect(bx + w - px * 4.5, by + h - py * 2 + legAnimBack, px * 2.5, py * 4);
+  context.strokeStyle = darkBody;
+  context.strokeRect(bx + w - px * 4.5, by + h - py * 2 + legAnimBack, px * 2.5, py * 4);
+
+  // Left back leg (slightly behind)
+  context.fillStyle = '#e0d8d0';
+  context.fillRect(bx + px * 4, by + h - py * 2 + legAnimBack, px * 2.5, py * 4);
+  context.strokeStyle = darkBody;
+  context.strokeRect(bx + px * 4, by + h - py * 2 + legAnimBack, px * 2.5, py * 4);
+
+  // Right back leg
+  context.fillStyle = '#e0d8d0';
+  context.fillRect(bx + w - px * 6.5, by + h - py * 2 + legAnim, px * 2.5, py * 4);
+  context.strokeStyle = darkBody;
+  context.strokeRect(bx + w - px * 6.5, by + h - py * 2 + legAnim, px * 2.5, py * 4);
+
+  // Tail
+  context.fillStyle = bodyColor;
+  context.beginPath();
+  context.moveTo(bx + w - px, by + h - py * 5);
+  context.quadraticCurveTo(bx + w + px * 3, by + h - py * 7, bx + w + px * 2, by + h - py * 4);
+  context.quadraticCurveTo(bx + w + px * 1, by + h - py * 3, bx + w - px, by + h - py * 3);
+  context.fill();
+
+  // Ears
+  context.fillStyle = earColor;
+  context.fillRect(bx + px * 2, by - py * 1.5, px * 3, py * 3);
+  context.fillRect(bx + w - px * 5, by - py * 1.5, px * 3, py * 3);
+  context.fillStyle = '#d09878';
+  context.fillRect(bx + px * 2.8, by - py * 0.5, px * 1.5, py * 1.5);
+  context.fillRect(bx + w - px * 4.2, by - py * 0.5, px * 1.5, py * 1.5);
+
+  // Body
+  context.fillStyle = bodyColor;
+  roundRect(context, bx, by, w, h, px * 1.5);
+  context.fill();
+  context.strokeStyle = darkBody;
+  context.lineWidth = 1.5;
+  roundRect(context, bx, by, w, h, px * 1.5);
+  context.stroke();
+
+  // Eyes
+  var eyeSize = px * 2;
+  context.fillStyle = '#1a1a1a';
+  context.fillRect(bx + px * 3.5, by + py * 3, eyeSize, eyeSize);
+  context.fillRect(bx + w - px * 5.5, by + py * 3, eyeSize, eyeSize);
+  context.fillStyle = '#fff';
+  context.fillRect(bx + px * 4.2, by + py * 3.3, px * 0.8, px * 0.8);
+  context.fillRect(bx + w - px * 4.8, by + py * 3.3, px * 0.8, px * 0.8);
+
+  // Cheeks
+  context.fillStyle = cheekColor;
+  context.beginPath();
+  context.ellipse(bx + px * 2, by + py * 6, px * 2, py * 1.2, 0, 0, Math.PI * 2);
+  context.fill();
+  context.beginPath();
+  context.ellipse(bx + w - px * 2, by + py * 6, px * 2, py * 1.2, 0, 0, Math.PI * 2);
+  context.fill();
+
+  // Nose
+  context.fillStyle = noseColor;
+  context.fillRect(cx - px * 1.2, by + py * 5.5, px * 2.4, py * 1.2);
+
+  // Mouth (happy smile or screaming)
+  if (isScreaming) {
+    // Screaming mouth - open and large
+    context.fillStyle = '#1a1a1a';
+    context.beginPath();
+    context.ellipse(cx, by + py * 7.5, px * 1.5, py * 1.8, 0, 0, Math.PI * 2);
+    context.fill();
+    // Mouth inner glow
+    context.fillStyle = '#4a2a1a';
+    context.beginPath();
+    context.ellipse(cx, by + py * 7.2, px * 1.2, py * 1.2, 0, 0, Math.PI * 2);
+    context.fill();
+  } else {
+    // Happy smile
+    context.strokeStyle = darkBody;
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(cx - px * 1.5, by + py * 7.5);
+    context.quadraticCurveTo(cx, by + py * 8.5, cx + px * 1.5, by + py * 7.5);
+    context.stroke();
+  }
+
+  context.restore();
+}
+
+// ─── DRAW EVIL ENEMY CHARACTER (with animated legs) ───
+function drawEvilCharacter(cx, cy, w, h, scheme, legPhase, alpha, context) {
+  var px = w / 12;
+  var py = h / 10;
+  var bx = cx - w / 2;
+  var by = cy - h / 2;
+
+  var legAnim = Math.sin(legPhase) * py * 2.5;
+  var legAnimBack = Math.sin(legPhase + Math.PI) * py * 2.5;
+
+  context.save();
+  context.globalAlpha = alpha;
+  context.imageSmoothingEnabled = false;
+
+  // Shadow
+  context.fillStyle = 'rgba(0,0,0,0.12)';
+  context.beginPath();
+  context.ellipse(cx, by + h + py * 1.5, w * 0.4, py * 1.2, 0, 0, Math.PI * 2);
+  context.fill();
+
+  // Legs (animated)
+  context.fillStyle = scheme.dark;
+  context.fillRect(bx + px * 1.5, by + h - py * 1.5 + legAnim, px * 2, py * 3.5);
+  context.fillRect(bx + w - px * 3.5, by + h - py * 1.5 + legAnimBack, px * 2, py * 3.5);
+  context.strokeStyle = '#000';
+  context.lineWidth = 0.8;
+  context.strokeRect(bx + px * 1.5, by + h - py * 1.5 + legAnim, px * 2, py * 3.5);
+  context.strokeRect(bx + w - px * 3.5, by + h - py * 1.5 + legAnimBack, px * 2, py * 3.5);
+
+  // Horns / spikes
+  context.fillStyle = scheme.dark;
+  context.beginPath();
+  context.moveTo(bx + px * 1.5, by);
+  context.lineTo(bx + px * 2.5, by - py * 2.5);
+  context.lineTo(bx + px * 3.5, by);
+  context.fill();
+  context.beginPath();
+  context.moveTo(bx + w - px * 3.5, by);
+  context.lineTo(bx + w - px * 2.5, by - py * 2.5);
+  context.lineTo(bx + w - px * 1.5, by);
+  context.fill();
+
+  // Body
+  context.fillStyle = scheme.body;
+  context.shadowColor = scheme.body;
+  context.shadowBlur = 10;
+  roundRect(context, bx, by, w, h, px * 1.2);
+  context.fill();
+  context.shadowBlur = 0;
+  context.strokeStyle = scheme.dark;
+  context.lineWidth = 1.5;
+  roundRect(context, bx, by, w, h, px * 1.2);
+  context.stroke();
+
+  // Angry eyes
+  var eyeW = px * 2.2;
+  var eyeH = px * 2;
+  // White of eye
+  context.fillStyle = '#fff';
+  context.fillRect(bx + px * 2, by + py * 2.5, eyeW, eyeH);
+  context.fillRect(bx + w - px * 2 - eyeW, by + py * 2.5, eyeW, eyeH);
+  // Pupil
+  context.fillStyle = scheme.eye;
+  context.fillRect(bx + px * 2.8, by + py * 3, px * 1.2, px * 1.2);
+  context.fillRect(bx + w - px * 3.2, by + py * 3, px * 1.2, px * 1.2);
+  // Angry eyebrows
+  context.strokeStyle = '#000';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(bx + px * 1.5, by + py * 1.8);
+  context.lineTo(bx + px * 4.5, by + py * 2.5);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(bx + w - px * 1.5, by + py * 1.8);
+  context.lineTo(bx + w - px * 4.5, by + py * 2.5);
+  context.stroke();
+
+  // Mean mouth
+  context.strokeStyle = '#000';
+  context.lineWidth = 1.5;
+  context.beginPath();
+  context.moveTo(cx - px * 2, by + py * 6.5);
+  context.lineTo(cx - px * 1, by + py * 7.2);
+  context.lineTo(cx + px * 1, by + py * 6.5);
+  context.lineTo(cx + px * 2, by + py * 7.2);
+  context.stroke();
+
+  // Teeth
+  context.fillStyle = '#fff';
+  context.fillRect(cx - px * 1.5, by + py * 6.3, px * 0.8, py * 0.8);
+  context.fillRect(cx + px * 0.7, by + py * 6.3, px * 0.8, py * 0.8);
+
+  context.restore();
+}
+
+// ─── DRAW FOOD (apple/fruit) ───
+function drawFood(fx, fy, size, bobPhase, context) {
+  var s = size;
+  context.save();
+  context.translate(fx, fy + Math.sin(bobPhase) * 3);
+
+  // Shadow
+  context.fillStyle = 'rgba(0,0,0,0.08)';
+  context.beginPath();
+  context.ellipse(0, s * 0.7, s * 0.6, s * 0.2, 0, 0, Math.PI * 2);
+  context.fill();
+
+  // Glow
+  context.fillStyle = 'rgba(100,220,100,0.15)';
+  context.beginPath();
+  context.arc(0, 0, s * 1.3, 0, Math.PI * 2);
+  context.fill();
+
+  // Apple body
+  context.fillStyle = '#44cc55';
+  context.beginPath();
+  context.arc(-s * 0.15, 0, s * 0.55, 0, Math.PI * 2);
+  context.fill();
+  context.beginPath();
+  context.arc(s * 0.15, 0, s * 0.55, 0, Math.PI * 2);
+  context.fill();
+
+  // Highlight
+  context.fillStyle = 'rgba(255,255,255,0.35)';
+  context.beginPath();
+  context.arc(-s * 0.15, -s * 0.2, s * 0.2, 0, Math.PI * 2);
+  context.fill();
+
+  // Stem
+  context.strokeStyle = '#6b4226';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(0, -s * 0.45);
+  context.lineTo(s * 0.05, -s * 0.7);
+  context.stroke();
+
+  // Leaf
+  context.fillStyle = '#33aa44';
+  context.beginPath();
+  context.moveTo(s * 0.05, -s * 0.6);
+  context.quadraticCurveTo(s * 0.35, -s * 0.9, s * 0.25, -s * 0.55);
+  context.quadraticCurveTo(s * 0.15, -s * 0.5, s * 0.05, -s * 0.6);
+  context.fill();
+
+  context.restore();
+}
+
+// ─── PREVIEW ───
+function drawPreview() {
+  var pc = document.getElementById('claudinho-preview');
+  var pctx = pc.getContext('2d');
+  pctx.clearRect(0, 0, 120, 100);
+  drawClaudinho(60, 42, 80, 65, pctx, 0, false, false);
+}
+drawPreview();
+
+// ─── SPAWN FUNCTIONS ───
+function spawnFromEdge() {
+  var side = Math.floor(Math.random() * 4);
+  var x, y;
+  var margin = 50;
+  switch (side) {
+    case 0: x = Math.random() * W; y = -margin; break;
+    case 1: x = W + margin; y = Math.random() * H; break;
+    case 2: x = Math.random() * W; y = H + margin; break;
+    case 3: x = -margin; y = Math.random() * H; break;
+  }
+  return { x: x, y: y };
+}
+
+function spawnEnemy() {
+  var pos = spawnFromEdge();
+  var targetX = W * (0.2 + Math.random() * 0.6);
+  var targetY = H * (0.2 + Math.random() * 0.6);
+  var angle = Math.atan2(targetY - pos.y, targetX - pos.x);
+  angle += (Math.random() - 0.5) * 0.8;
+
+  var scheme = ENEMY_SCHEMES[Math.floor(Math.random() * ENEMY_SCHEMES.length)];
+  var speed = enemySpeed * (0.7 + Math.random() * 0.6);
+  var sizeMultiplier = 0.8 + Math.random() * 0.5;
+
+  enemies.push({
+    x: pos.x,
+    y: pos.y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    scheme: scheme,
+    w: 32 * sizeMultiplier,
+    h: 28 * sizeMultiplier,
+    hitSize: 14 * sizeMultiplier,
+    legPhase: Math.random() * Math.PI * 2,
+    alpha: 0,
+    fadeIn: true,
+    flashTime: 0,
+  });
+}
+
+function spawnFood() {
+  if (foods.length >= CFG.foodMaxOnScreen) return;
+  var padding = 80;
+  var x = padding + Math.random() * (W - padding * 2);
+  var y = padding + Math.random() * (H - padding * 2);
+  foods.push({
+    x: x,
+    y: y,
+    size: 14 + Math.random() * 4,
+    bobPhase: Math.random() * Math.PI * 2,
+    alpha: 0,
+  });
+}
+
+function useScream() {
+  if (!screamReady) return;
+
+  screamReady = false;
+  screamCooldownTimer = CFG.screamCooldown;
+
+  // Create scream wave
+  screamWaves.push({
+    x: claudinho.x,
+    y: claudinho.y,
+    radius: 0,
+    maxRadius: CFG.screamRange,
+    life: 1,
+    decay: 1 / (CFG.screamDuration / 16),
+  });
+
+  // Repel enemies
+  for (var i = 0; i < enemies.length; i++) {
+    var e = enemies[i];
+    var dx = e.x - claudinho.x;
+    var dy = e.y - claudinho.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < CFG.screamRange) {
+      var angle = Math.atan2(dy, dx);
+      var force = CFG.screamForce * (1 - dist / CFG.screamRange);
+      e.vx += Math.cos(angle) * force;
+      e.vy += Math.sin(angle) * force;
+
+      // Flash the enemy
+      e.flashTime = 10;
+    }
+  }
+
+  // Scream particles
+  for (var p = 0; p < 30; p++) {
+    var angle = Math.random() * Math.PI * 2;
+    var speed = 3 + Math.random() * 4;
+    particles.push({
+      x: claudinho.x,
+      y: claudinho.y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.02 + Math.random() * 0.015,
+      size: 3 + Math.random() * 6,
+      color: '#ffaa44',
+      type: Math.random() > 0.5 ? 'square' : 'circle',
+    });
+  }
+
+  // Screen shake
+  shakeTime = 200;
+
+  // Update UI
+  updateScreamUI();
+}
+
+// ─── PARTICLES ───
+function spawnParticles(x, y, color, count) {
+  for (var i = 0; i < count; i++) {
+    var angle = Math.random() * Math.PI * 2;
+    var speed = 1 + Math.random() * 5;
+    particles.push({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.015 + Math.random() * 0.025,
+      size: 2 + Math.random() * 5,
+      color: color,
+      type: Math.random() > 0.5 ? 'square' : 'circle',
+    });
+  }
+}
+
+function spawnTrail(x, y) {
+  trails.push({ x: x, y: y, life: 1, decay: 0.04 });
+}
+
+// ─── COLLISION ───
+function checkEnemyCollision() {
+  var cx = claudinho.x;
+  var cy = claudinho.y;
+  var hw = (CFG.claudinhoW - CFG.hitboxShrink * 2) / 2;
+
+  for (var i = 0; i < enemies.length; i++) {
+    var e = enemies[i];
+    if (e.alpha < 0.5) continue;
+    var dx = cx - e.x;
+    var dy = cy - e.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < hw + e.hitSize) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkFoodCollision() {
+  var cx = claudinho.x;
+  var cy = claudinho.y;
+  var hw = CFG.claudinhoW / 2;
+
+  for (var i = foods.length - 1; i >= 0; i--) {
+    var f = foods[i];
+    if (f.alpha < 0.5) continue;
+    var dx = cx - f.x;
+    var dy = cy - f.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < hw + f.size * 0.4) {
+      // Eat the food!
+      spawnParticles(f.x, f.y, '#44cc55', 10);
+      spawnParticles(f.x, f.y, '#88ff88', 6);
+      foods.splice(i, 1);
+      foodScore++;
+      score += 5;
+      updateScoreDisplay();
+    }
+  }
+}
+
+// ─── GAME LOGIC ───
+function startGame() {
+  gameState = 'playing';
+  score = 0;
+  foodScore = 0;
+  scoreAccum = 0;
+  gameTime = 0;
+  enemies = [];
+  foods = [];
+  particles = [];
+  trails = [];
+  screamWaves = [];
+  spawnInterval = CFG.spawnIntervalBase;
+  enemySpeed = CFG.enemyBaseSpeed;
+  spawnTimer = 0;
+  foodSpawnTimer = 0;
+  screamReady = true;
+  screamCooldownTimer = 0;
+  shakeTime = 0;
+  claudinho.x = W / 2;
+  claudinho.y = H / 2;
+  claudinho.prevX = W / 2;
+  claudinho.prevY = H / 2;
+  claudinho.legPhase = 0;
+  claudinho.speed = 0;
+  mouseX = W / 2;
+  mouseY = H / 2;
+
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  document.getElementById('score-display').classList.add('visible');
+  document.getElementById('high-score-display').classList.add('visible');
+  document.getElementById('food-display').classList.add('visible');
+  updateScoreDisplay();
+  updateScreamUI();
+}
+
+function gameOver() {
+  gameState = 'gameover';
+  shakeTime = CFG.shakeDuration;
+
+  spawnParticles(claudinho.x, claudinho.y, '#c08060', CFG.particleCount);
+  spawnParticles(claudinho.x, claudinho.y, '#ffcc44', 20);
+  spawnParticles(claudinho.x, claudinho.y, '#ff4444', 15);
+
+  for (var i = 0; i < enemies.length; i++) {
+    spawnParticles(enemies[i].x, enemies[i].y, enemies[i].scheme.body, 6);
+  }
+  enemies = [];
+  foods = [];
+
+  var isNewRecord = score > highScore;
+  if (isNewRecord) {
+    highScore = score;
+    localStorage.setItem('claudinhoDodgeHigh', String(highScore));
+  }
+
+  document.getElementById('score-display').classList.remove('visible');
+  document.getElementById('high-score-display').classList.remove('visible');
+  document.getElementById('food-display').classList.remove('visible');
+
+  setTimeout(function() {
+    document.getElementById('final-score').textContent = String(score);
+    var hsEl = document.getElementById('gameover-highscore');
+    if (isNewRecord) {
+      hsEl.textContent = '\u2B50 NOVO RECORDE! \u2B50';
+      hsEl.classList.add('new-record');
+    } else {
+      hsEl.textContent = 'MELHOR: ' + highScore;
+      hsEl.classList.remove('new-record');
+    }
+    document.getElementById('gameover-screen').classList.remove('hidden');
+  }, 600);
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score-display').textContent = 'SCORE: ' + score;
+  document.getElementById('high-score-display').textContent = 'HI: ' + highScore;
+  document.getElementById('food-display').textContent = '\uD83C\uDF4E x ' + foodScore;
+}
+
+function updateScreamUI() {
+  var container = document.getElementById('scream-bar-container');
+  var fill = document.getElementById('scream-bar-fill');
+  var status = document.getElementById('scream-status');
+
+  if (gameState === 'playing') {
+    container.style.opacity = '1';
+    if (screamReady) {
+      status.style.opacity = '1';
+      fill.style.width = '100%';
+    } else {
+      status.style.opacity = '0';
+      var progress = 1 - (screamCooldownTimer / CFG.screamCooldown);
+      fill.style.width = (progress * 100) + '%';
+    }
+  } else {
+    container.style.opacity = '0';
+    status.style.opacity = '0';
+  }
+}
+
+// ─── MAIN LOOP ───
+function update(dt) {
+  if (gameState !== 'playing') return;
+
+  gameTime += dt;
+  scoreAccum += dt;
+  if (scoreAccum >= 1000) {
+    score += Math.floor(scoreAccum / 1000);
+    scoreAccum %= 1000;
+    updateScoreDisplay();
+  }
+
+  // Update scream cooldown
+  if (!screamReady) {
+    screamCooldownTimer -= dt;
+    if (screamCooldownTimer <= 0) {
+      screamReady = true;
+      screamCooldownTimer = 0;
+      updateScreamUI();
+    } else {
+      updateScreamUI();
+    }
+  }
+
+  // Claudinho movement
+  claudinho.prevX = claudinho.x;
+  claudinho.prevY = claudinho.y;
+  claudinho.x += (mouseX - claudinho.x) * CFG.followSmooth;
+  claudinho.y += (mouseY - claudinho.y) * CFG.followSmooth;
+
+  var cdx = claudinho.x - claudinho.prevX;
+  var cdy = claudinho.y - claudinho.prevY;
+  claudinho.speed = Math.sqrt(cdx * cdx + cdy * cdy);
+
+  // Animate legs based on movement speed
+  if (claudinho.speed > 0.5) {
+    claudinho.legPhase += claudinho.speed * 0.3;
+  }
+
+  if (frameCount % 3 === 0) {
+    spawnTrail(claudinho.x, claudinho.y + CFG.claudinhoH * 0.3);
+  }
+
+  // Spawn enemies with progressive difficulty
+  var difficultyFactor = Math.min(1, gameTime / CFG.difficultyRampTime);
+  var baseInterval = CFG.spawnIntervalBase * (1 - difficultyFactor * 0.5);
+  spawnInterval = Math.max(CFG.spawnIntervalMin, baseInterval - (gameTime / 1000) * CFG.spawnIntervalDecrease);
+
+  spawnTimer += dt;
+  if (spawnTimer >= spawnInterval) {
+    spawnTimer = 0;
+    spawnEnemy();
+  }
+
+  enemySpeed = CFG.enemyBaseSpeed * (1 + difficultyFactor * 1.5);
+
+  // Spawn food
+  foodSpawnTimer += dt;
+  if (foodSpawnTimer >= CFG.foodSpawnInterval) {
+    foodSpawnTimer = 0;
+    spawnFood();
+  }
+
+  // Update enemies
+  var margin = 100;
+  for (var i = enemies.length - 1; i >= 0; i--) {
+    var e = enemies[i];
+    e.x += e.vx;
+    e.y += e.vy;
+    // Leg animation based on speed
+    var espeed = Math.sqrt(e.vx * e.vx + e.vy * e.vy);
+    e.legPhase += espeed * 0.25;
+    if (e.fadeIn) {
+      e.alpha = Math.min(1, e.alpha + 0.05);
+      if (e.alpha >= 1) e.fadeIn = false;
+    }
+    if (e.x < -margin || e.x > W + margin || e.y < -margin || e.y > H + margin) {
+      enemies.splice(i, 1);
+    }
+  }
+
+  // Update foods
+  for (var j = 0; j < foods.length; j++) {
+    var f = foods[j];
+    f.bobPhase += 0.04;
+    if (f.alpha < 1) f.alpha = Math.min(1, f.alpha + 0.03);
+  }
+
+  // Collisions
+  checkFoodCollision();
+  if (checkEnemyCollision()) {
+    gameOver();
+  }
+}
+
+function updateParticles() {
+  for (var i = particles.length - 1; i >= 0; i--) {
+    var p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.97;
+    p.vy *= 0.97;
+    p.vy += 0.04;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (var j = trails.length - 1; j >= 0; j--) {
+    trails[j].life -= trails[j].decay;
+    if (trails[j].life <= 0) trails.splice(j, 1);
+  }
+  for (var w = screamWaves.length - 1; w >= 0; w--) {
+    var wave = screamWaves[w];
+    wave.radius += wave.maxRadius / (CFG.screamDuration / 16);
+    wave.life -= wave.decay;
+    if (wave.life <= 0) screamWaves.splice(w, 1);
+  }
+}
+
+function render() {
+  ctx.save();
+
+  if (shakeTime > 0) {
+    var intensity = (shakeTime / CFG.shakeDuration) * CFG.shakeIntensity;
+    ctx.translate((Math.random() - 0.5) * intensity * 2, (Math.random() - 0.5) * intensity * 2);
+  }
+
+  // Background
+  ctx.fillStyle = CFG.bgColor;
+  ctx.fillRect(-20, -20, W + 40, H + 40);
+
+  ctx.fillStyle = CFG.dotColor;
+  for (var i = 0; i < backgroundDots.length; i++) {
+    ctx.beginPath();
+    ctx.arc(backgroundDots[i].x, backgroundDots[i].y, CFG.dotRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Trails
+  for (var t = 0; t < trails.length; t++) {
+    ctx.globalAlpha = trails[t].life * 0.15;
+    ctx.fillStyle = '#c08060';
+    ctx.beginPath();
+    ctx.arc(trails[t].x, trails[t].y, 6 * trails[t].life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Foods
+  for (var fi = 0; fi < foods.length; fi++) {
+    var fd = foods[fi];
+    ctx.globalAlpha = fd.alpha;
+    drawFood(fd.x, fd.y, fd.size, fd.bobPhase, ctx);
+  }
+  ctx.globalAlpha = 1;
+
+  // Enemies (evil characters)
+  for (var ei = 0; ei < enemies.length; ei++) {
+    var en = enemies[ei];
+    if (en.flashTime && en.flashTime > 0) {
+      ctx.globalAlpha = en.alpha * 0.6;
+      en.flashTime--;
+    } else {
+      ctx.globalAlpha = en.alpha;
+    }
+    drawEvilCharacter(en.x, en.y, en.w, en.h, en.scheme, en.legPhase, ctx.globalAlpha, ctx);
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // Scream waves
+  for (var sw = 0; sw < screamWaves.length; sw++) {
+    var w = screamWaves[sw];
+    ctx.globalAlpha = w.life * 0.8;
+    ctx.strokeStyle = '#ffaa44';
+    ctx.lineWidth = 4 * w.life;
+    ctx.shadowColor = '#ffaa44';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    // Inner ring
+    ctx.strokeStyle = '#ffdd88';
+    ctx.lineWidth = 2 * w.life;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, w.radius * 0.7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+
+  // Particles
+  for (var pi = 0; pi < particles.length; pi++) {
+    var pp = particles[pi];
+    ctx.globalAlpha = pp.life;
+    ctx.fillStyle = pp.color;
+    if (pp.type === 'square') {
+      ctx.fillRect(pp.x - pp.size / 2, pp.y - pp.size / 2, pp.size * pp.life, pp.size * pp.life);
+    } else {
+      ctx.beginPath();
+      ctx.arc(pp.x, pp.y, pp.size * pp.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Claudinho with aura when scream is ready
+  if (gameState === 'playing') {
+    if (screamReady) {
+      // Draw pulsing aura
+      var auraSize = CFG.claudinhoW * 1.8 + Math.sin(frameCount * 0.05) * 15;
+      var auraAlpha = 0.4 + Math.sin(frameCount * 0.05) * 0.2;
+
+      ctx.globalAlpha = auraAlpha;
+      ctx.fillStyle = '#ffaa44';
+      ctx.shadowColor = '#ffaa44';
+      ctx.shadowBlur = 30;
+      ctx.beginPath();
+      ctx.arc(claudinho.x, claudinho.y, auraSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Aura ring
+      ctx.globalAlpha = auraAlpha * 0.6;
+      ctx.strokeStyle = '#ffdd88';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(claudinho.x, claudinho.y, auraSize / 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Show tap and hold charge on mobile
+    if (touchActive && touchHoldCharge > 0) {
+      var chargeCircle = CFG.claudinhoW * 1.4 * touchHoldCharge;
+      ctx.globalAlpha = 0.6 * touchHoldCharge;
+      ctx.fillStyle = '#ffaa44';
+      ctx.beginPath();
+      ctx.arc(claudinho.x, claudinho.y, chargeCircle, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = '#ffdd88';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(claudinho.x, claudinho.y, chargeCircle, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = 0;
+
+    var dx = mouseX - claudinho.x;
+    var tilt = Math.max(-0.15, Math.min(0.15, dx * 0.003));
+    var isScreaming = screamWaves.length > 0;
+    ctx.save();
+    ctx.translate(claudinho.x, claudinho.y);
+    ctx.rotate(tilt);
+    drawClaudinho(0, 0, CFG.claudinhoW, CFG.claudinhoH, ctx, claudinho.legPhase, claudinho.speed > 0.5, isScreaming);
+    ctx.restore();
+  }
+
+  // Edge warning indicators
+  if (gameState === 'playing') {
+    for (var wi = 0; wi < enemies.length; wi++) {
+      var we = enemies[wi];
+      if (we.alpha < 0.3) {
+        var edgePad = 20;
+        var wx = Math.max(edgePad, Math.min(W - edgePad, we.x));
+        var wy = Math.max(edgePad, Math.min(H - edgePad, we.y));
+        if (wx !== we.x || wy !== we.y) {
+          ctx.globalAlpha = 0.6 * (1 - we.alpha);
+          ctx.fillStyle = we.scheme.body;
+          ctx.beginPath();
+          ctx.arc(wx, wy, 6, 0, Math.PI * 2);
+          ctx.fill();
+          // Warning triangle
+          ctx.fillStyle = '#fff';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('!', wx, wy + 3.5);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+function gameLoop(timestamp) {
+  var dt = lastTime ? Math.min(timestamp - lastTime, 50) : 16;
+  lastTime = timestamp;
+  frameCount++;
+
+  if (shakeTime > 0) shakeTime = Math.max(0, shakeTime - dt);
+
+  update(dt);
+  updateParticles();
+  render();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ─── UI EVENTS ───
+document.getElementById('start-btn').addEventListener('click', function() {
+  startGame();
+});
+
+document.getElementById('restart-btn').addEventListener('click', function() {
+  startGame();
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (gameState === 'playing') {
+      useScream();
+    } else if (gameState === 'menu') {
+      startGame();
+    } else if (gameState === 'gameover') {
+      var goScreen = document.getElementById('gameover-screen');
+      if (!goScreen.classList.contains('hidden')) startGame();
+    }
+  } else if (e.code === 'Enter') {
+    if (gameState === 'menu') startGame();
+    if (gameState === 'gameover') {
+      var goScreen = document.getElementById('gameover-screen');
+      if (!goScreen.classList.contains('hidden')) startGame();
+    }
+  }
+});
+
+// ─── INIT ───
+updateScoreDisplay();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
