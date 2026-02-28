@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Bot!</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Comfortaa:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+      font-family: 'Comfortaa', sans-serif;
+      user-select: none;
+      overscroll-behavior: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      image-rendering: pixelated;
+    }
+
+    .ui-container {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    #score-display {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 20px;
+      color: #fff;
+      text-shadow: 3px 3px 0 rgba(0,0,0,0.3), 0 0 10px rgba(135, 206, 235, 0.5);
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    #high-score-display {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    .screen-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      transition: opacity 0.4s, backdrop-filter 0.4s;
+      backdrop-filter: blur(4px);
+    }
+
+    .screen-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+      backdrop-filter: blur(0);
+    }
+
+    #start-screen {
+      background: linear-gradient(135deg, rgba(135, 206, 235, 0.9) 0%, rgba(176, 224, 230, 0.9) 100%);
+    }
+
+    #gameover-screen {
+      background: linear-gradient(135deg, rgba(100, 150, 200, 0.95) 0%, rgba(70, 130, 180, 0.95) 100%);
+    }
+
+    .game-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(32px, 8vw, 60px);
+      color: #fff;
+      text-shadow: 4px 4px 0 rgba(0,0,0,0.4), -2px -2px 0 rgba(255,255,255,0.3);
+      margin-bottom: 20px;
+      animation: titleBounce 2s ease-in-out infinite;
+      letter-spacing: 2px;
+    }
+
+    .game-subtitle {
+      font-family: 'Comfortaa', sans-serif;
+      font-size: clamp(16px, 3vw, 24px);
+      color: #fff;
+      margin-bottom: 30px;
+      font-weight: 700;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .instruction {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(11px, 2vw, 14px);
+      color: rgba(255,255,255,0.95);
+      text-align: center;
+      line-height: 1.8;
+      margin-bottom: 40px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .play-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 16px;
+      padding: 16px 40px;
+      background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 6px 0 #2d7a2d, 0 8px 15px rgba(0,0,0,0.3);
+      transition: all 0.1s;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+    }
+
+    .play-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 #2d7a2d, 0 10px 20px rgba(0,0,0,0.3);
+    }
+
+    .play-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #2d7a2d, 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .final-score {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(32px, 6vw, 56px);
+      color: #FFD700;
+      text-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+      margin: 20px 0;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .final-score-label {
+      font-family: 'Comfortaa', sans-serif;
+      font-size: 20px;
+      color: #fff;
+      font-weight: 700;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .high-score-text {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: #fff;
+      margin: 15px 0 30px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .new-record {
+      color: #FFD700 !important;
+      animation: bounce 0.6s ease-in-out infinite;
+    }
+
+    @keyframes titleBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    @media (max-width: 640px) {
+      #score-display {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div class="ui-container">
+  <div id="score-display">SCORE: 0</div>
+  <div id="high-score-display">HI: 0</div>
+</div>
+
+<div id="start-screen" class="screen-overlay">
+  <div class="game-title">CLOUD<br>BOT!</div>
+  <div class="game-subtitle">Pule entre as nuvens!</div>
+  <div class="instruction">
+    <span class="desktop-only">Mova o mouse para controlar<br>o Cloud Bot</span>
+    <span class="mobile-only" style="display:none;">Toque para controlar<br>o Cloud Bot</span>
+  </div>
+  <button class="play-btn" id="start-btn">JOGAR</button>
+</div>
+
+<div id="gameover-screen" class="screen-overlay hidden">
+  <div class="game-title">GAME OVER</div>
+  <div class="final-score-label">Pontuação</div>
+  <div class="final-score" id="final-score">0</div>
+  <div class="high-score-text" id="gameover-highscore">MELHOR: 0</div>
+  <button class="play-btn" id="restart-btn">JOGAR NOVAMENTE</button>
+</div>
+
+<script>
+// ─── CONFIG ───
+var CFG = {
+  canvasWidth: 800,
+  canvasHeight: 600,
+  cloudBotSize: 50,
+  platformWidth: 80,
+  platformHeight: 15,
+  platformSpawnInterval: 1000,
+  platformGravity: 2,
+  platformMinX: 50,
+  powerupChance: 0.08,
+  obstacleChance: 0.05,
+  highScoreKey: 'cloudBotHighScore',
+};
+
+// ─── STATE ───
+var canvas = document.getElementById('game-canvas');
+var ctx = canvas.getContext('2d');
+var gameState = 'menu'; // menu, playing, gameover
+var score = 0;
+var highScore = parseInt(localStorage.getItem(CFG.highScoreKey) || '0');
+var gameTime = 0;
+var mouseX = 0, mouseY = 0;
+var platforms = [];
+var particles = [];
+var powerups = [];
+var obstacles = [];
+var lastPlatformTime = 0;
+var frameCount = 0;
+
+// Cloud Bot object
+var cloudBot = {
+  x: 0,
+  y: 0,
+  width: CFG.cloudBotSize,
+  height: CFG.cloudBotSize,
+  velocityY: 0,
+  velocityX: 0,
+  onPlatform: false,
+  eyeBlinkTime: 0
+};
+
+// ─── RESIZE ───
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  cloudBot.x = canvas.width / 2;
+  cloudBot.y = canvas.height - 150;
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// ─── INPUT ───
+var touchActive = false;
+
+document.addEventListener('mousemove', function(e) {
+  if (!touchActive && gameState === 'playing') {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  }
+});
+
+document.addEventListener('touchstart', function(e) {
+  touchActive = true;
+  if (gameState === 'playing') {
+    var touch = e.touches[0];
+    mouseX = touch.clientX;
+    mouseY = touch.clientY;
+  }
+}, { passive: false });
+
+document.addEventListener('touchmove', function(e) {
+  if (gameState === 'playing') {
+    e.preventDefault();
+    var touch = e.touches[0];
+    mouseX = touch.clientX;
+    mouseY = touch.clientY;
+  }
+}, { passive: false });
+
+document.addEventListener('touchend', function(e) {
+  touchActive = false;
+}, { passive: false });
+
+// Disable pull-to-refresh
+document.addEventListener('touchmove', function(e) {
+  if (e.touches.length > 1) return;
+  var touch = e.touches[0];
+  if (window.scrollY === 0 && touch.clientY > 100) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+// ─── DRAW CLOUD BOT ───
+function drawCloudBot(x, y, size, isScared) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + size * 0.4, size * 0.45, size * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cloud body (3 circles)
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#E8F4F8';
+  ctx.lineWidth = 2;
+
+  // Main body
+  ctx.beginPath();
+  ctx.arc(x, y + size * 0.1, size * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Left bump
+  ctx.beginPath();
+  ctx.arc(x - size * 0.25, y + size * 0.05, size * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Right bump
+  ctx.beginPath();
+  ctx.arc(x + size * 0.25, y + size * 0.05, size * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Antenna
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y - size * 0.25);
+  ctx.lineTo(x, y - size * 0.45);
+  ctx.stroke();
+
+  // Antenna ball
+  ctx.fillStyle = '#FF6B6B';
+  ctx.beginPath();
+  ctx.arc(x, y - size * 0.48, size * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  var eyeOffsetY = isScared ? -size * 0.05 : size * 0.05;
+  var eyeSize = size * 0.12;
+
+  // Left eye
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(x - size * 0.15, y + eyeOffsetY, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Right eye
+  ctx.beginPath();
+  ctx.arc(x + size * 0.15, y + eyeOffsetY, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye shine
+  ctx.fillStyle = '#FFF';
+  ctx.beginPath();
+  ctx.arc(x - size * 0.12, y + eyeOffsetY - size * 0.04, size * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x + size * 0.12, y + eyeOffsetY - size * 0.04, size * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mouth
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (isScared) {
+    ctx.moveTo(x - size * 0.12, y + size * 0.22);
+    ctx.quadraticCurveTo(x, y + size * 0.28, x + size * 0.12, y + size * 0.22);
+  } else {
+    ctx.moveTo(x - size * 0.12, y + size * 0.22);
+    ctx.quadraticCurveTo(x, y + size * 0.26, x + size * 0.12, y + size * 0.22);
+  }
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ─── DRAW PLATFORM ───
+function drawPlatform(x, y, width, height, type) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+
+  if (type === 'obstacle') {
+    // Dark cloud obstacle
+    ctx.fillStyle = '#4A90A4';
+    ctx.strokeStyle = '#2C5670';
+  } else if (type === 'powerup-host') {
+    // Golden platform
+    ctx.fillStyle = '#FFD700';
+    ctx.strokeStyle = '#FFA500';
+  } else {
+    // Normal cloud platform
+    ctx.fillStyle = '#B0E0E6';
+    ctx.strokeStyle = '#87CEEB';
+  }
+
+  ctx.lineWidth = 2;
+
+  // Main platform body
+  ctx.beginPath();
+  ctx.roundRect(x - width / 2, y, width, height, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  // Cloud puff effect
+  var puffSize = height * 0.8;
+  ctx.beginPath();
+  ctx.arc(x - width * 0.25, y - puffSize * 0.3, puffSize * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x + width * 0.25, y - puffSize * 0.3, puffSize * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Add shine for powerup platforms
+  if (type === 'powerup-host') {
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#FFF';
+    ctx.beginPath();
+    ctx.ellipse(x - width * 0.15, y + height * 0.3, width * 0.25, height * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ─── DRAW POWERUP ───
+function drawPowerup(x, y, type) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+
+  if (type === 'star') {
+    ctx.fillStyle = '#FFD700';
+    // Draw star
+    drawStar(x, y, 5, 12, 6);
+  } else {
+    ctx.fillStyle = '#FF6B6B';
+    // Draw lightning bolt
+    ctx.beginPath();
+    ctx.moveTo(x, y - 10);
+    ctx.lineTo(x - 3, y);
+    ctx.lineTo(x, y - 2);
+    ctx.lineTo(x + 5, y + 8);
+    ctx.lineTo(x + 2, y + 2);
+    ctx.lineTo(x, y + 8);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Glow effect
+  ctx.globalAlpha = 0.4;
+  ctx.strokeStyle = ctx.fillStyle;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, 15, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+  var rot = Math.PI / 2 * 3;
+  var step = Math.PI / spikes;
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - outerRadius);
+  for (var i = 0; i < spikes; i++) {
+    ctx.lineTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
+    rot += step;
+
+    ctx.lineTo(cx + Math.cos(rot) * innerRadius, cy + Math.sin(rot) * innerRadius);
+    rot += step;
+  }
+  ctx.lineTo(cx, cy - outerRadius);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ─── SPAWN ───
+function spawnPlatform() {
+  var x = Math.random() * (canvas.width - CFG.platformWidth * 2) + CFG.platformWidth;
+  var type = 'normal';
+
+  if (Math.random() < CFG.powerupChance) {
+    type = 'powerup-host';
+  } else if (Math.random() < CFG.obstacleChance) {
+    type = 'obstacle';
+  }
+
+  platforms.push({
+    x: x,
+    y: -CFG.platformHeight,
+    width: CFG.platformWidth,
+    height: CFG.platformHeight,
+    velocityY: CFG.platformGravity + (gameTime / 30000), // Speed increases
+    type: type,
+    hasSpawnedPowerup: false
+  });
+}
+
+function spawnParticles(x, y, color, count) {
+  for (var i = 0; i < count; i++) {
+    var angle = (Math.PI * 2 * i) / count;
+    var speed = 2 + Math.random() * 3;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.02 + Math.random() * 0.01,
+      size: 3 + Math.random() * 3,
+      color: color
+    });
+  }
+}
+
+// ─── COLLISION ───
+function checkPlatformCollision() {
+  for (var i = 0; i < platforms.length; i++) {
+    var p = platforms[i];
+    if (cloudBot.velocityY >= 0 &&
+        cloudBot.y + cloudBot.height >= p.y &&
+        cloudBot.y + cloudBot.height <= p.y + p.height + 10 &&
+        cloudBot.x + cloudBot.width / 2 > p.x - p.width / 2 &&
+        cloudBot.x + cloudBot.width / 2 < p.x + p.width / 2) {
+
+      cloudBot.velocityY = -15;
+      cloudBot.onPlatform = true;
+
+      if (p.type === 'normal') {
+        score += 10;
+        spawnParticles(p.x, p.y, '#87CEEB', 8);
+      } else if (p.type === 'powerup-host') {
+        if (!p.hasSpawnedPowerup) {
+          score += 25;
+          var type = Math.random() > 0.5 ? 'star' : 'lightning';
+          powerups.push({
+            x: p.x,
+            y: p.y - 20,
+            type: type,
+            life: 1
+          });
+          p.hasSpawnedPowerup = true;
+          spawnParticles(p.x, p.y, '#FFD700', 12);
+        }
+      } else if (p.type === 'obstacle') {
+        // Get pushed away
+        cloudBot.velocityX = cloudBot.x < p.x ? -10 : 10;
+        cloudBot.velocityY = -8;
+      }
+      break;
+    }
+  }
+}
+
+// ─── GAME LOGIC ───
+function startGame() {
+  gameState = 'playing';
+  score = 0;
+  gameTime = 0;
+  cloudBot.x = canvas.width / 2;
+  cloudBot.y = canvas.height - 150;
+  cloudBot.velocityY = 0;
+  cloudBot.velocityX = 0;
+  platforms = [];
+  particles = [];
+  powerups = [];
+  obstacles = [];
+  lastPlatformTime = 0;
+
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  updateScoreDisplay();
+}
+
+function gameOver() {
+  gameState = 'gameover';
+  spawnParticles(cloudBot.x, cloudBot.y, '#FF6B6B', 30);
+
+  var isNewRecord = score > highScore;
+  if (isNewRecord) {
+    highScore = score;
+    localStorage.setItem(CFG.highScoreKey, String(highScore));
+  }
+
+  setTimeout(function() {
+    document.getElementById('final-score').textContent = String(score);
+    var hsEl = document.getElementById('gameover-highscore');
+    if (isNewRecord) {
+      hsEl.textContent = '⭐ NOVO RECORDE! ⭐';
+      hsEl.classList.add('new-record');
+    } else {
+      hsEl.textContent = 'MELHOR: ' + highScore;
+      hsEl.classList.remove('new-record');
+    }
+    document.getElementById('gameover-screen').classList.remove('hidden');
+  }, 200);
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score-display').textContent = 'SCORE: ' + score;
+  document.getElementById('high-score-display').textContent = 'HI: ' + highScore;
+}
+
+// ─── UPDATE ───
+function update(dt) {
+  if (gameState !== 'playing') return;
+
+  gameTime += dt;
+  frameCount++;
+
+  // Mouse following
+  var targetX = mouseX;
+  cloudBot.x += (targetX - cloudBot.x) * 0.2;
+  cloudBot.x = Math.max(cloudBot.width / 2, Math.min(canvas.width - cloudBot.width / 2, cloudBot.x));
+
+  // Gravity
+  cloudBot.velocityY += 0.5;
+  cloudBot.velocityX *= 0.95;
+
+  // Update position
+  cloudBot.x += cloudBot.velocityX;
+  cloudBot.y += cloudBot.velocityY;
+
+  // Wrap around edges
+  if (cloudBot.x < 0) cloudBot.x = canvas.width;
+  if (cloudBot.x > canvas.width) cloudBot.x = 0;
+
+  // Update platforms
+  for (var i = platforms.length - 1; i >= 0; i--) {
+    platforms[i].y += platforms[i].velocityY;
+    if (platforms[i].y > canvas.height) {
+      platforms.splice(i, 1);
+    }
+  }
+
+  // Spawn new platforms
+  if (gameTime - lastPlatformTime > Math.max(400, CFG.platformSpawnInterval - gameTime / 50)) {
+    spawnPlatform();
+    lastPlatformTime = gameTime;
+  }
+
+  // Update powerups
+  for (var j = 0; j < powerups.length; j++) {
+    var pu = powerups[j];
+    pu.y += 1;
+
+    // Check collision with cloudBot
+    var dist = Math.hypot(pu.x - cloudBot.x, pu.y - cloudBot.y);
+    if (dist < cloudBot.width / 2 + 15) {
+      score += (pu.type === 'star' ? 25 : 15);
+      spawnParticles(pu.x, pu.y, pu.type === 'star' ? '#FFD700' : '#FF6B6B', 10);
+      powerups.splice(j, 1);
+      j--;
+    }
+  }
+
+  // Update particles
+  for (var p = particles.length - 1; p >= 0; p--) {
+    particles[p].x += particles[p].vx;
+    particles[p].y += particles[p].vy;
+    particles[p].vy += 0.1;
+    particles[p].life -= particles[p].decay;
+    if (particles[p].life <= 0) particles.splice(p, 1);
+  }
+
+  // Check collisions
+  cloudBot.onPlatform = false;
+  checkPlatformCollision();
+
+  // Game over
+  if (cloudBot.y > canvas.height) {
+    gameOver();
+  }
+
+  updateScoreDisplay();
+}
+
+// ─── RENDER ───
+function render() {
+  // Background
+  ctx.fillStyle = 'rgba(135, 206, 235, 0.8)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Gradient overlay
+  var gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, 'rgba(200, 230, 255, 0.3)');
+  gradient.addColorStop(1, 'rgba(100, 180, 255, 0.3)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw platforms
+  for (var i = 0; i < platforms.length; i++) {
+    drawPlatform(platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height, platforms[i].type);
+  }
+
+  // Draw powerups
+  for (var j = 0; j < powerups.length; j++) {
+    drawPowerup(powerups[j].x, powerups[j].y, powerups[j].type);
+  }
+
+  // Draw particles
+  for (var p = 0; p < particles.length; p++) {
+    var particle = particles[p];
+    ctx.globalAlpha = particle.life;
+    ctx.fillStyle = particle.color;
+    ctx.beginPath();
+    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Draw cloudBot
+  var isScared = cloudBot.y > canvas.height - 100;
+  drawCloudBot(cloudBot.x, cloudBot.y, cloudBot.width, isScared);
+}
+
+// ─── GAME LOOP ───
+var lastTime = 0;
+function gameLoop(timestamp) {
+  var dt = lastTime ? Math.min(timestamp - lastTime, 50) : 16;
+  lastTime = timestamp;
+
+  update(dt);
+  render();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ─── EVENT LISTENERS ───
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+document.addEventListener('keydown', function(e) {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (gameState === 'menu') startGame();
+    else if (gameState === 'gameover') startGame();
+  }
+});
+
+// Mobile instruction detection
+if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+  document.querySelector('.desktop-only').style.display = 'none';
+  document.querySelector('.mobile-only').style.display = 'inline';
+}
+
+// Init
+updateScoreDisplay();
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>
