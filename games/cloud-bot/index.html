@@ -822,7 +822,7 @@ function animate() {
     drawGameOver();
   }
 
-  const ease = (isOverCloud && gameState !== 'dead') ? 0.09 : 0.03;
+  const ease = (isOverCloud && gameState !== 'dead') ? 0.18 : 0.06;
   const dx = targetX - botX;
   const dy = targetY - botY;
   botX += dx * ease;
