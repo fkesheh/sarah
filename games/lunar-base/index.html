@@ -330,10 +330,16 @@ const CFG = {
   laserCooldown: 250,
   blastRadius: 55,
   meteorSizes: {
-    small:  { r: 10, speed: 2.8, points: 10, color: '#ff6644' },
-    medium: { r: 20, speed: 1.8, points: 25, color: '#ff8844' },
-    large:  { r: 32, speed: 1.2, points: 50, color: '#ffaa44' },
-    boss:   { r: 52, speed: 0.8, points: 200, color: '#ff2244', hp: 3 },
+    small:  { r: 10, speed: 2.8, points: 10, baseHp: 1 },
+    medium: { r: 20, speed: 1.8, points: 25, baseHp: 2 },
+    large:  { r: 32, speed: 1.2, points: 50, baseHp: 4 },
+    boss:   { r: 52, speed: 0.8, points: 200, baseHp: 8 },
+  },
+  // Material classes: hp multiplier, colors, trail color
+  meteorMaterials: {
+    ice:   { hpMult: 1, color: '#88ccff', glow: '#44aaff', trail: [136, 200, 255], label: 'ICE' },
+    rock:  { hpMult: 2, color: '#ff8844', glow: '#ff6622', trail: [255, 100, 0], label: 'ROCK' },
+    metal: { hpMult: 3, color: '#ccccdd', glow: '#aaaacc', trail: [200, 200, 220], label: 'METAL' },
   },
   waveBaseMeteors: 5,
   waveMeteorIncrease: 2,
@@ -617,13 +623,14 @@ function drawTurret(time) {
 function drawMeteor(m, time) {
   ctx.save();
 
-  // Fire trail particles
+  // Fire trail particles (material-tinted)
+  const tr = m.trailRGB || [255, 100, 0];
   for (let i = 0; i < 3; i++) {
     const trailX = m.x - m.vx * (i * 4 + Math.random() * 6);
     const trailY = m.y - m.vy * (i * 4 + Math.random() * 6);
     const trailR = m.r * (1 - i * 0.25) * (0.3 + Math.random() * 0.4);
     const alpha = (1 - i * 0.3) * 0.5;
-    ctx.fillStyle = `rgba(255,${100 + i * 50},0,${alpha})`;
+    ctx.fillStyle = `rgba(${tr[0]},${Math.min(255, tr[1] + i * 30)},${tr[2]},${alpha})`;
     ctx.beginPath();
     ctx.arc(trailX, trailY, trailR, 0, Math.PI * 2);
     ctx.fill();
@@ -634,7 +641,7 @@ function drawMeteor(m, time) {
   ctx.rotate(m.rotation);
 
   // Outer glow
-  ctx.shadowColor = m.color;
+  ctx.shadowColor = m.glowColor || m.color;
   ctx.shadowBlur = 15;
 
   // Rocky body
@@ -662,12 +669,12 @@ function drawMeteor(m, time) {
 
   ctx.shadowBlur = 0;
 
-  // Boss HP indicator
-  if (m.isBoss && m.hp > 1) {
-    ctx.fillStyle = '#ff2244';
-    ctx.font = 'bold 14px Orbitron';
+  // HP indicator for any meteor with more than 1 HP
+  if (m.hp > 1) {
+    ctx.fillStyle = m.glowColor || '#ff2244';
+    ctx.font = `bold ${Math.max(10, m.r * 0.4)}px Orbitron`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${m.hp}`, 0, 5);
+    ctx.fillText(`${m.hp}`, 0, m.r * 0.15);
   }
 
   ctx.restore();
@@ -759,8 +766,16 @@ function drawFloatingText(ft) {
 }
 
 // ─── SPAWNING ───
-function createMeteor(type, x, targetX, y) {
+function pickMaterial() {
+  const roll = Math.random();
+  if (roll < 0.5) return 'ice';
+  if (roll < 0.85) return 'rock';
+  return 'metal';
+}
+
+function createMeteor(type, x, targetX, y, material) {
   const cfg = CFG.meteorSizes[type];
+  const mat = CFG.meteorMaterials[material || pickMaterial()];
   const startX = x !== undefined ? x : Math.random() * canvas.width * 0.8 + canvas.width * 0.1;
   const startY = y !== undefined ? y : -cfg.r - 20;
   const tX = targetX !== undefined ? targetX : getTurretX() + (Math.random() - 0.5) * 200;
@@ -775,20 +790,26 @@ function createMeteor(type, x, targetX, y) {
   const segs = type === 'boss' ? 12 : 8;
   for (let i = 0; i < segs; i++) shape.push(0.75 + Math.random() * 0.5);
 
+  const hp = cfg.baseHp * mat.hpMult;
+
   return {
     x: startX,
     y: startY,
     vx: (dx / dist) * cfg.speed * speedMult,
     vy: (dy / dist) * cfg.speed * speedMult,
     r: cfg.r,
-    color: cfg.color,
-    points: cfg.points,
+    color: mat.color,
+    glowColor: mat.glow,
+    trailRGB: mat.trail,
+    material: material || 'ice',
+    points: cfg.points * mat.hpMult,
     type: type,
     rotation: Math.random() * Math.PI * 2,
     rotSpeed: (Math.random() - 0.5) * 0.05,
     shape: shape,
     isBoss: type === 'boss',
-    hp: cfg.hp || 1,
+    hp: hp,
+    maxHp: hp,
   };
 }
 
@@ -998,7 +1019,7 @@ function destroyMeteor(m, index) {
   if (splitType) {
     for (let s = 0; s < 2; s++) {
       const tX = m.x + (s === 0 ? -1 : 1) * (80 + Math.random() * 100);
-      meteors.push(createMeteor(splitType, m.x, tX, m.y));
+      meteors.push(createMeteor(splitType, m.x, tX, m.y, m.material));
     }
   }
 
