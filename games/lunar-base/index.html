@@ -1289,19 +1289,38 @@ function gameLoop(timestamp) {
 }
 
 // ─── INPUT ───
+let pointerDown = false;
+
 function handlePointerDown(x, y) {
   if (gameState === 'start') {
     startGame();
     return;
   }
   if (gameState === 'playing') {
+    pointerDown = true;
     shoot(x, y);
   }
 }
 
+function handlePointerUp() {
+  pointerDown = false;
+}
+
+// Autofire loop - shoots while pointer is held
+function autofireCheck() {
+  if (pointerDown && gameState === 'playing') {
+    shoot(mouseX, mouseY);
+  }
+  requestAnimationFrame(autofireCheck);
+}
+requestAnimationFrame(autofireCheck);
+
 canvas.addEventListener('mousedown', (e) => {
   handlePointerDown(e.clientX, e.clientY);
 });
+
+canvas.addEventListener('mouseup', handlePointerUp);
+document.addEventListener('mouseup', handlePointerUp);
 
 canvas.addEventListener('mousemove', (e) => {
   mouseX = e.clientX;
@@ -1322,6 +1341,9 @@ canvas.addEventListener('touchmove', (e) => {
   mouseX = t.clientX;
   mouseY = t.clientY;
 }, { passive: false });
+
+canvas.addEventListener('touchend', handlePointerUp);
+canvas.addEventListener('touchcancel', handlePointerUp);
 
 document.getElementById('restart-btn').addEventListener('click', startGame);
 document.getElementById('restart-btn').addEventListener('touchstart', (e) => {
