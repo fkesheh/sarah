@@ -296,9 +296,9 @@ var CFG = {
   enemyBaseSpeed: 2.2,
   enemySpeedIncrease: 0.08,
   spawnIntervalBase: 1200,
-  spawnIntervalMin: 200,
-  spawnIntervalDecrease: 6,
-  difficultyRampTime: 60000,
+  spawnIntervalMin: 150,
+  spawnIntervalDecrease: 9,
+  difficultyRampTime: 45000,
   hitboxShrink: 8,
   shakeIntensity: 16,
   shakeDuration: 500,
@@ -1050,7 +1050,7 @@ function update(dt) {
     spawnEnemy();
   }
 
-  enemySpeed = CFG.enemyBaseSpeed * (1 + difficultyFactor * 1.5);
+  enemySpeed = CFG.enemyBaseSpeed * (1 + difficultyFactor * 2.0);
 
   // Spawn food
   foodSpawnTimer += dt;

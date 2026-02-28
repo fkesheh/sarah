@@ -368,11 +368,13 @@ let score = 0;
 let obstacles = [];
 let frameCount = 0;
 let deathTime = 0;
+let spawnTimer = 0;
 
 const OBSTACLE_SPEED_BASE = 1.4;
 const OBSTACLE_WIDTH = 150;
 const GAP_SIZE = 210;
-const SPAWN_INTERVAL = 210;
+const SPAWN_INTERVAL_BASE = 210;
+const SPAWN_INTERVAL_MIN = 90;
 const HIT_RX = 40;
 const HIT_RY = 26;
 const CLOUD_HIT_RX = 62;
@@ -384,7 +386,18 @@ const SPARKLE_COLORS = [
 ];
 
 function getObstacleSpeed() {
-  return OBSTACLE_SPEED_BASE + Math.floor(score / 5) * 0.2;
+  // Speed scales with both score and time
+  const scoreBonus = Math.floor(score / 4) * 0.3; // increased from /5 and *0.2
+  const timeBonus = frameCount / 1000; // 1 more speed per 1000 frames
+  return OBSTACLE_SPEED_BASE + scoreBonus + timeBonus;
+}
+
+function getSpawnInterval() {
+  // Spawn rate increases as game progresses (more obstacles come faster)
+  const scoreReduction = Math.floor(score / 6) * 4; // every 6 points reduces by 4 frames
+  const timeReduction = Math.floor(frameCount / 500) * 2; // every 500 frames reduces by 2
+  const interval = SPAWN_INTERVAL_BASE - scoreReduction - timeReduction;
+  return Math.max(SPAWN_INTERVAL_MIN, interval);
 }
 
 function isMouseOverCloud(mx, my) {
@@ -554,6 +567,7 @@ function restartGame() {
   obstacles = [];
   score = 0;
   frameCount = 0;
+  spawnTimer = 0;
   gameState = 'playing';
   setExpression('happy');
   hintEl.classList.add('hidden');
@@ -782,8 +796,12 @@ function animate() {
 
   if (gameState === 'playing') {
     frameCount++;
+    spawnTimer++;
 
-    if (frameCount % SPAWN_INTERVAL === 1) spawnObstacle();
+    if (spawnTimer >= getSpawnInterval()) {
+      spawnTimer = 0;
+      spawnObstacle();
+    }
 
     const speed = getObstacleSpeed();
 
