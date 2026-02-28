@@ -402,19 +402,11 @@ function handlePositionChange(x, y) {
   const wasOverCloud = isOverCloud;
   isOverCloud = isMouseOverCloud(mouseX, mouseY);
 
-  if (isOverCloud && gameState !== 'dead') {
-    const dx = mouseX - prevMouseX;
-    const dy = mouseY - prevMouseY;
-    const speed = Math.sqrt(dx * dx + dy * dy);
+  // Always follow the mouse
+  targetX = mouseX;
+  targetY = mouseY;
 
-    targetX = mouseX;
-    targetY = mouseY;
-
-    if (idleTime > 2000 && speed > 80) {
-      setExpression('surprised');
-      setTimeout(() => { if (currentExpression === 'surprised') setExpression('happy'); }, 600);
-    }
-
+  if (gameState !== 'dead') {
     lastMoveTime = Date.now();
     idleTime = 0;
 
@@ -424,6 +416,7 @@ function handlePositionChange(x, y) {
     }
   }
 
+  // Allow restart by moving over cloud after death
   if (isOverCloud && gameState === 'dead' && Date.now() - deathTime > 1500) {
     restartGame();
   }
@@ -822,7 +815,7 @@ function animate() {
     drawGameOver();
   }
 
-  const ease = (isOverCloud && gameState !== 'dead') ? 0.18 : 0.06;
+  const ease = 0.15; // Smooth following like Claudinho Dodge
   const dx = targetX - botX;
   const dy = targetY - botY;
   botX += dx * ease;
