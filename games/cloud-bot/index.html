@@ -536,9 +536,14 @@ function createMiniCloud(x, y) {
 }
 
 function spawnObstacle() {
-  const margin = 80;
+  // Reduce margin as difficulty increases for more height variation
+  const basemargin = 60;
+  const difficultyMarginReduction = Math.min(40, Math.floor(score / 10) * 5);
+  const margin = Math.max(30, basemargin - difficultyMarginReduction);
+
   const minGapY = GAP_SIZE / 2 + margin;
   const maxGapY = window.innerHeight - GAP_SIZE / 2 - margin;
+
   obstacles.push({
     x: window.innerWidth + OBSTACLE_WIDTH / 2 + 30,
     gapCenterY: minGapY + Math.random() * (maxGapY - minGapY),
