@@ -384,6 +384,9 @@ const BONUS_TYPES = {
   turret: { color: '#00ff88', glow: '#00ff88', label: 'TURRET', speed: 1.0, r: 18 },
   battery: { color: '#4488ff', glow: '#2266ff', label: 'BATTERY', speed: 1.0, r: 16 },
   solar: { color: '#ffcc00', glow: '#ffaa00', label: 'SOLAR', speed: 1.0, r: 16 },
+  damage: { color: '#ff4444', glow: '#ff2222', label: 'DAMAGE', speed: 1.0, r: 16 },
+  rapid:  { color: '#cc44ff', glow: '#aa22ff', label: 'RAPID',  speed: 1.0, r: 16 },
+  ammo:   { color: '#00ffcc', glow: '#00ddaa', label: 'AMMO',   speed: 1.0, r: 16 },
 };
 
 // Activation order from center outward: index 3 (center) → 2,4 → 1,5 → 0,6
@@ -942,7 +945,7 @@ function createBonusItem(type) {
 
 function pickBonusType() {
   const activeTurrets = cannonStates.filter(c => c.active).length;
-  const types = ['battery', 'solar'];
+  const types = ['battery', 'solar', 'damage', 'rapid', 'ammo'];
   if (activeTurrets < 7) {
     types.push('turret');
     if (activeTurrets < 3) types.push('turret', 'turret');
@@ -1031,6 +1034,16 @@ function collectBonus(item, bulletX, bulletY) {
     }
     groundItems.push({ type: 'solar', x: getNextGroundItemX(), y: getGroundY() });
     createFloatingText(bulletX, bulletY - 20, '+SOLAR', 255, 204, 0, 20);
+  } else if (type === 'damage') {
+    cannonStates[3].damage += 2;
+    createFloatingText(bulletX, bulletY - 20, '+DAMAGE', 255, 68, 68, 20);
+  } else if (type === 'rapid') {
+    cannonStates[3].cooldown = Math.max(80, Math.floor(cannonStates[3].cooldown * 0.75));
+    createFloatingText(bulletX, bulletY - 20, '+RAPID', 204, 68, 255, 20);
+  } else if (type === 'ammo') {
+    cannonStates[3].maxAmmo += 3;
+    cannonStates[3].ammo = Math.min(cannonStates[3].ammo + 3, cannonStates[3].maxAmmo);
+    createFloatingText(bulletX, bulletY - 20, '+AMMO', 0, 255, 204, 20);
   }
 
   // Celebration particles (gold/cyan)
@@ -1124,6 +1137,46 @@ function drawBonusItem(item, time) {
     ctx.moveTo(item.x + 6, item.y - 10);
     ctx.lineTo(item.x + 6, item.y + 10);
     ctx.stroke();
+  } else if (item.type === 'damage') {
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, item.r * 0.7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(item.x - item.r, item.y);
+    ctx.lineTo(item.x + item.r, item.y);
+    ctx.moveTo(item.x, item.y - item.r);
+    ctx.lineTo(item.x, item.y + item.r);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = item.color;
+    ctx.fill();
+  } else if (item.type === 'rapid') {
+    ctx.fillStyle = item.color;
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.moveTo(item.x + 2, item.y - item.r);
+    ctx.lineTo(item.x - 6, item.y - 1);
+    ctx.lineTo(item.x - 1, item.y - 1);
+    ctx.lineTo(item.x - 4, item.y + item.r);
+    ctx.lineTo(item.x + 6, item.y + 1);
+    ctx.lineTo(item.x + 1, item.y + 1);
+    ctx.closePath();
+    ctx.fill();
+  } else if (item.type === 'ammo') {
+    ctx.fillStyle = item.color;
+    ctx.globalAlpha = pulse;
+    for (let j = 0; j < 3; j++) {
+      const bx = item.x - 5 + j * 5;
+      const by = item.y - 8 + j * 2;
+      ctx.fillRect(bx - 2, by, 4, 14);
+      ctx.beginPath();
+      ctx.arc(bx, by, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.globalAlpha = 1;
