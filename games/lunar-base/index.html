@@ -998,10 +998,10 @@ function activateNextCannon() {
 function deactivateRandomTurret() {
   const activeIndices = cannonStates
     .map((c, i) => ({ active: c.active, idx: i }))
-    .filter(c => c.active)
+    .filter(c => c.active && c.idx !== 3)
     .map(c => c.idx);
 
-  if (activeIndices.length <= 1) return;
+  if (activeIndices.length === 0) return;
 
   const idx = activeIndices[Math.floor(Math.random() * activeIndices.length)];
   cannonStates[idx].active = false;
@@ -1039,10 +1039,12 @@ function collectBonus(item, bulletX, bulletY) {
     createFloatingText(bulletX, bulletY - 20, '+DAMAGE', 255, 68, 68, 20);
   } else if (type === 'rapid') {
     cannonStates[3].cooldown = Math.max(80, Math.floor(cannonStates[3].cooldown * 0.75));
+    cannonStates[3].regenRate *= 1.15;
     createFloatingText(bulletX, bulletY - 20, '+RAPID', 204, 68, 255, 20);
   } else if (type === 'ammo') {
     cannonStates[3].maxAmmo += 3;
     cannonStates[3].ammo = Math.min(cannonStates[3].ammo + 3, cannonStates[3].maxAmmo);
+    cannonStates[3].regenRate *= 1.2;
     createFloatingText(bulletX, bulletY - 20, '+AMMO', 0, 255, 204, 20);
   }
 
