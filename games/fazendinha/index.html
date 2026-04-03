@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Fazendinha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    background: #1a1a2e;
+    font-family: 'Fredoka', sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+
+  html { overscroll-behavior: none; }
+
+  canvas#gameCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ─── Back Link ─── */
+  .back-link {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 100;
+    color: #fff;
+    text-decoration: none;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.4);
+    transition: background 0.2s;
+  }
+  .back-link:hover {
+    text-decoration: underline;
+    background: rgba(0,0,0,0.6);
+  }
+
+  /* ─── Fullscreen Button ─── */
+  .fullscreen-btn {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 100;
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s;
+  }
+  .fullscreen-btn:hover {
+    background: rgba(0,0,0,0.6);
+  }
+
+  /* ─── HUD Bar ─── */
+  .hud-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 50px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 50;
+    color: #fff;
+    font-family: 'Fredoka', sans-serif;
+    padding: 0 60px;
+  }
+
+  .hud-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .hud-item .icon {
+    font-size: 18px;
+  }
+
+  .hud-money {
+    color: #f0c020;
+    font-weight: 700;
+  }
+
+  .hud-forecast {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 16px;
+  }
+
+  .hud-forecast .forecast-day {
+    opacity: 0.7;
+    font-size: 14px;
+  }
+
+  /* ─── Time Controls ─── */
+  .time-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .time-btn {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 12px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .time-btn:hover {
+    background: rgba(255,255,255,0.2);
+  }
+  .time-btn.active {
+    background: rgba(76,175,80,0.6);
+    border-color: #4CAF50;
+    color: #fff;
+  }
+
+  /* ─── Bottom Toolbar ─── */
+  .toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70px;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    z-index: 50;
+    padding: 10px;
+  }
+
+  .tool-btn {
+    width: 60px;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  }
+  .tool-btn .tool-icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+  .tool-btn .tool-label {
+    font-size: 10px;
+    font-family: 'Fredoka', sans-serif;
+  }
+  .tool-btn:hover {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.4);
+  }
+  .tool-btn.active {
+    border-color: #4CAF50;
+    background: rgba(76,175,80,0.3);
+    box-shadow: 0 0 10px rgba(76,175,80,0.4);
+  }
+
+  /* ─── Seed Selector ─── */
+  .seed-selector {
+    position: fixed;
+    bottom: 80px;
+    left: 0;
+    width: 100%;
+    height: 82px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: none;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    overflow-x: auto;
+    z-index: 49;
+  }
+  .seed-selector.visible {
+    display: flex;
+  }
+  .seed-selector::-webkit-scrollbar {
+    height: 4px;
+  }
+  .seed-selector::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+  }
+
+  .seed-btn {
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    color: #fff;
+    white-space: nowrap;
+    font-size: 11px;
+    font-family: 'Fredoka', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    min-width: 100px;
+    text-align: left;
+    line-height: 1.4;
+  }
+  .seed-btn:hover {
+    background: rgba(255,255,255,0.2);
+  }
+  .seed-btn.selected {
+    background: rgba(76,175,80,0.4);
+    border-color: #4CAF50;
+  }
+  .seed-btn.in-season {
+    border-color: rgba(76,175,80,0.5);
+  }
+  .seed-btn .seed-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+  .seed-btn .seed-trend {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .seed-btn .seed-trend.up { color: #4CAF50; }
+  .seed-btn .seed-trend.down { color: #e04030; }
+  .seed-btn .seed-trend.neutral { color: #888; }
+  .seed-btn .seed-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 2px;
+  }
+  .seed-btn .seed-price {
+    color: #f0c020;
+  }
+  .seed-btn .seed-sell {
+    color: #4CAF50;
+  }
+  .seed-btn .seed-seasons {
+    font-size: 9px;
+  }
+  .seed-btn .seed-prefs {
+    display: flex;
+    gap: 6px;
+    font-size: 9px;
+    margin-top: 2px;
+    color: rgba(255,255,255,0.5);
+  }
+  .seed-btn .seed-likes { color: rgba(76,175,80,0.8); }
+  .seed-btn .seed-hates { color: rgba(224,64,48,0.8); }
+
+  /* ─── Side Panel ─── */
+  .side-panel {
+    position: fixed;
+    right: 0;
+    top: 56px;
+    bottom: 76px;
+    width: 280px;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 40;
+    overflow-y: auto;
+    padding: 16px;
+    color: #fff;
+  }
+  .side-panel.open {
+    transform: translateX(0);
+  }
+  .side-panel::-webkit-scrollbar {
+    width: 4px;
+  }
+  .side-panel::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+  }
+
+  .side-panel-toggle {
+    position: absolute;
+    left: -36px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 80px;
+    background: rgba(0,0,0,0.7);
+    border-radius: 8px 0 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #fff;
+    font-size: 18px;
+    transition: background 0.2s;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-right: none;
+  }
+  .side-panel-toggle:hover {
+    background: rgba(0,0,0,0.9);
+  }
+
+  .panel-section {
+    margin-bottom: 20px;
+  }
+
+  .panel-section h3 {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 10px;
+    color: #4CAF50;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  .panel-section .tile-info-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .inventory-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 6px;
+    padding: 4px 0;
+  }
+
+  .market-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .market-item .market-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .market-item .market-price {
+    color: #f0c020;
+  }
+
+  .sell-btn {
+    background: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: 'Fredoka', sans-serif;
+    transition: background 0.2s;
+  }
+  .sell-btn:hover {
+    background: #45a049;
+  }
+
+  .upgrade-item {
+    margin-bottom: 12px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+  }
+  .upgrade-item .upgrade-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .upgrade-item .upgrade-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 6px;
+  }
+  .upgrade-item .upgrade-level {
+    font-size: 10px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 4px;
+  }
+
+  .buy-upgrade-btn {
+    background: linear-gradient(135deg, #f0c020, #d4a010);
+    color: #000;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    font-family: 'Fredoka', sans-serif;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .buy-upgrade-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(240,192,32,0.4);
+  }
+  .buy-upgrade-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ─── Start Screen ─── */
+  .start-screen {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    color: #fff;
+  }
+  .start-screen.hidden {
+    display: none;
+  }
+
+  .start-title {
+    font-family: 'Press Start 2P', cursive;
+    font-size: clamp(28px, 6vw, 48px);
+    color: #4CAF50;
+    text-shadow: 0 0 20px rgba(76,175,80,0.5), 0 0 40px rgba(76,175,80,0.3);
+    margin-bottom: 16px;
+  }
+
+  .start-subtitle {
+    font-size: 18px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 40px;
+    font-family: 'Fredoka', sans-serif;
+  }
+
+  .start-desc {
+    max-width: 500px;
+    text-align: center;
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.6;
+    margin-bottom: 40px;
+    font-family: 'Fredoka', sans-serif;
+    padding: 0 20px;
+  }
+
+  .start-play-btn {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 20px;
+    padding: 16px 48px;
+    background: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(76,175,80,0.4), 0 4px 12px rgba(0,0,0,0.3);
+    animation: pulse 2s ease-in-out infinite;
+    transition: transform 0.1s;
+  }
+  .start-play-btn:hover {
+    transform: scale(1.05);
+  }
+
+  /* ─── Achievement Toast ─── */
+  .achievement-container {
+    position: fixed;
+    top: 60px;
+    right: 16px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .achievement-toast {
+    background: rgba(0,0,0,0.9);
+    border-left: 4px solid #f0c020;
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: #fff;
+    font-family: 'Fredoka', sans-serif;
+    animation: slideIn 0.4s ease-out, fadeOut 0.5s ease-in 3.5s forwards;
+    min-width: 220px;
+    pointer-events: auto;
+  }
+  .achievement-toast .toast-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #f0c020;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .achievement-toast .toast-body {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ─── Tutorial Overlay ─── */
+  .tutorial-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 400px;
+    width: 90%;
+    background: rgba(0,0,0,0.9);
+    border: 2px solid #4CAF50;
+    border-radius: 12px;
+    padding: 24px;
+    z-index: 250;
+    color: #fff;
+    text-align: center;
+    font-family: 'Fredoka', sans-serif;
+    display: none;
+  }
+  .tutorial-overlay.visible {
+    display: block;
+  }
+
+  .tutorial-overlay .tutorial-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+  .tutorial-overlay .tutorial-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 20px;
+  }
+  .tutorial-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .tutorial-next-btn {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 20px;
+    background: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .tutorial-next-btn:hover {
+    transform: scale(1.05);
+  }
+
+  .tutorial-skip-btn {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 13px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .tutorial-skip-btn:hover {
+    color: #fff;
+  }
+
+  .tutorial-highlight {
+    outline: 3px solid #4CAF50 !important;
+    outline-offset: 2px;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  /* ─── Minimap Canvas ─── */
+  #minimapCanvas {
+    position: fixed;
+    bottom: 80px;
+    left: 10px;
+    width: 150px;
+    height: 150px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.5);
+    z-index: 45;
+  }
+
+  /* ─── Encyclopedia / Almanac Modal ─── */
+  .encyclopedia-modal {
+    position: fixed;
+    inset: 10%;
+    background: rgba(10,10,20,0.95);
+    border: 2px solid #4CAF50;
+    border-radius: 12px;
+    padding: 24px;
+    z-index: 250;
+    overflow-y: auto;
+    color: #fff;
+    display: none;
+    font-family: 'Fredoka', sans-serif;
+  }
+  .encyclopedia-modal.visible {
+    display: block;
+  }
+  .encyclopedia-modal h2 {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 14px;
+    color: #4CAF50;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .encyclopedia-modal .close-btn {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  .encyclopedia-modal .crop-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .encyclopedia-modal .crop-card .crop-icon {
+    font-size: 32px;
+  }
+  .encyclopedia-modal .crop-card .crop-details {
+    flex: 1;
+  }
+  .encyclopedia-modal .crop-card .crop-name {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .encyclopedia-modal .crop-card .crop-stat {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.5;
+  }
+
+    .crop-detail-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      max-width: 90%;
+      background: rgba(10,10,20,0.95);
+      border: 2px solid #4CAF50;
+      border-radius: 12px;
+      padding: 24px;
+      z-index: 250;
+      color: #fff;
+      display: none;
+      font-family: 'Fredoka', sans-serif;
+    }
+    .crop-detail-modal.visible {
+      display: block;
+    }
+    .crop-detail-close {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .crop-detail-header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .crop-detail-header .detail-icon {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .crop-detail-header .detail-name {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 14px;
+      color: #4CAF50;
+    }
+    .crop-detail-header .detail-name.dead {
+      color: #e04030;
+    }
+    .crop-detail-body .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: 13px;
+    }
+    .crop-detail-body .detail-row .label {
+      color: rgba(255,255,255,0.6);
+    }
+    .crop-detail-body .detail-row .value {
+      font-weight: 600;
+    }
+    .crop-detail-body .progress-bar {
+      margin-top: 12px;
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .crop-detail-body .progress-fill {
+      height: 100%;
+      background: #4CAF50;
+      border-radius: 4px;
+    }
+
+  /* ─── Animations ─── */
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 640px) {
+    .toolbar {
+      gap: 8px;
+      padding: 8px;
+    }
+    .tool-btn {
+      width: 50px;
+      height: 45px;
+    }
+    .tool-btn .tool-icon {
+      font-size: 18px;
+    }
+    .tool-btn .tool-label {
+      font-size: 8px;
+    }
+    .side-panel {
+      width: 100%;
+      top: auto;
+      bottom: 76px;
+      max-height: 50vh;
+      border-radius: 12px 12px 0 0;
+      transform: translateY(100%);
+    }
+    .side-panel.open {
+      transform: translateY(0);
+    }
+    .side-panel-toggle {
+      left: 50%;
+      top: -32px;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 28px;
+      border-radius: 8px 8px 0 0;
+    }
+    .hud-bar {
+      gap: 10px;
+      padding: 0 40px;
+    }
+    .hud-item {
+      font-size: 12px;
+    }
+    #minimapCanvas {
+      width: 100px;
+      height: 100px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<canvas id="minimapCanvas" width="150" height="150"></canvas>
+
+<a href="../../" class="back-link">&larr; MENU</a>
+<button class="fullscreen-btn" id="fullscreenBtn" title="Tela Cheia">⛶</button>
+
+<!-- ─── HUD Bar ─── -->
+<div class="hud-bar" id="hudBar">
+  <div class="hud-item hud-money">
+    <span class="icon">$</span>
+    <span id="hudMoney">500</span>
+  </div>
+  <div class="hud-item">
+    <span class="icon">📅</span>
+    <span>Dia <span id="hudDay">1</span></span>
+  </div>
+  <div class="hud-item">
+    <span class="icon" id="hudSeasonIcon">🌸</span>
+    <span id="hudSeasonName">Primavera</span>
+  </div>
+  <div class="hud-item">
+    <span class="icon" id="hudWeatherIcon">☀️</span>
+    <span id="hudWeatherName">Ensolarado</span>
+  </div>
+  <div class="hud-forecast" id="hudForecast">
+    <span class="forecast-day" id="forecast0">☀️</span>
+    <span class="forecast-day" id="forecast1">☁️</span>
+    <span class="forecast-day" id="forecast2">🌧️</span>
+  </div>
+  <div class="time-controls">
+    <button class="time-btn" data-speed="0" id="timePause">⏸</button>
+    <button class="time-btn active" data-speed="1" id="time1x">1x</button>
+    <button class="time-btn" data-speed="2" id="time2x">2x</button>
+    <button class="time-btn" data-speed="3" id="time3x">3x</button>
+  </div>
+</div>
+
+<!-- ─── Bottom Toolbar ─── -->
+<div class="toolbar" id="toolbar">
+  <button class="tool-btn active" data-tool="plow" id="toolPlow">
+    <span class="tool-icon">🔨</span>
+    <span class="tool-label">Arar</span>
+  </button>
+  <button class="tool-btn" data-tool="plant" id="toolPlant">
+    <span class="tool-icon">🌱</span>
+    <span class="tool-label">Plantar</span>
+  </button>
+  <button class="tool-btn" data-tool="harvest" id="toolHarvest">
+    <span class="tool-icon">🌾</span>
+    <span class="tool-label">Colher</span>
+  </button>
+  <button class="tool-btn" data-tool="inspect" id="toolInspect">
+    <span class="tool-icon">🔍</span>
+    <span class="tool-label">Info</span>
+  </button>
+</div>
+
+<!-- ─── Seed Selector ─── -->
+<div class="seed-selector" id="seedSelector"></div>
+
+<!-- ─── Side Panel ─── -->
+<div class="side-panel" id="sidePanel">
+  <div class="side-panel-toggle" id="sidePanelToggle">◀</div>
+
+  <div class="panel-section" id="tileInfoSection">
+    <h3>Tile Info</h3>
+    <div class="tile-info-text" id="tileInfoText">Selecione um tile para ver detalhes.</div>
+  </div>
+
+  <div class="panel-section" id="inventorySection">
+    <h3>Inventario</h3>
+    <div id="inventoryList"></div>
+  </div>
+
+  <div class="panel-section" id="marketSection">
+    <h3>Mercado</h3>
+    <div id="marketList"></div>
+  </div>
+
+  <div class="panel-section" id="upgradeSection">
+    <h3>Melhorias</h3>
+    <div id="upgradeList"></div>
+  </div>
+</div>
+
+<!-- ─── Start Screen ─── -->
+<div class="start-screen" id="startScreen">
+  <div class="start-title">FAZENDINHA</div>
+  <div class="start-subtitle">Sua Fazenda Isometrica</div>
+  <div class="start-desc">
+    Construa e gerencie sua propria fazenda! Are a terra, plante sementes
+    e colha para ganhar moedas. A chuva e a irrigacao cuidam da agua.
+    Fique de olho no clima e nas estacoes para maximizar seus lucros.
+  </div>
+  <button class="start-play-btn" id="startPlayBtn">JOGAR</button>
+</div>
+
+<!-- ─── Achievement Toast Container ─── -->
+<div class="achievement-container" id="achievementContainer"></div>
+
+<!-- ─── Tutorial Overlay ─── -->
+<div class="tutorial-overlay" id="tutorialOverlay">
+  <div class="tutorial-icon" id="tutorialIcon">🌾</div>
+  <div class="tutorial-text" id="tutorialText">Bem-vindo a Fazendinha!</div>
+  <div class="tutorial-buttons">
+    <button class="tutorial-skip-btn" id="tutorialSkipBtn">Pular</button>
+    <button class="tutorial-next-btn" id="tutorialNextBtn">Proximo</button>
+  </div>
+</div>
+
+<!-- ─── Encyclopedia / Almanac Modal ─── -->
+<div class="encyclopedia-modal" id="encyclopediaModal">
+  <button class="close-btn" id="encyclopediaCloseBtn">&times;</button>
+  <h2>Almanaque de Culturas</h2>
+  <div id="encyclopediaCropList"></div>
+</div>
+
+<!-- Crop Detail Modal -->
+    <div class="crop-detail-modal" id="cropDetailModal">
+      <button class="crop-detail-close" id="cropDetailCloseBtn">&times;</button>
+      <div class="crop-detail-header" id="cropDetailHeader"></div>
+      <div class="crop-detail-body" id="cropDetailBody"></div>
+    </div>
+
+<!-- ─── Scripts ─── -->
+<script src="js/config.js"></script>
+<script src="js/iso.js"></script>
+<script src="js/state.js"></script>
+<script src="js/time.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/crops.js"></script>
+<script src="js/economy.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/input.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/tutorial.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>

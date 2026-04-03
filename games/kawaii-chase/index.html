@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Kawaii Chase</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; touch-action: none; }
+canvas { display: block; width: 100%; height: 100%; }
+#back-link {
+  position: fixed; top: 12px; left: 12px; z-index: 100;
+  color: #fff; font-family: 'Segoe UI', sans-serif; font-size: 14px;
+  text-decoration: none; background: rgba(0,0,0,0.35); padding: 6px 14px;
+  border-radius: 20px; transition: background 0.2s;
+}
+#back-link:hover { background: rgba(0,0,0,0.6); }
+</style>
+</head>
+<body>
+<a id="back-link" href="../">&#8592; Back</a>
+<canvas id="gc"></canvas>
+<script>
+"use strict";
+
+/* ===== CANVAS SETUP ===== */
+const canvas = document.getElementById("gc");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ===== GAME STATE ===== */
+const STATE_START = 0, STATE_PLAY = 1, STATE_OVER = 2;
+let state = STATE_START;
+let score = 0;
+let highScore = parseInt(localStorage.getItem("kawaii-chase-highscore")) || 0;
+let gameTime = 0;
+let spawnTimer = 0;
+let spawnInterval = 8;
+let speedMultiplier = 1;
+let nextEnemyType = 0;
+let enemies = [];
+let particles = [];
+let bgParticles = [];
+let dustParticles = [];
+let bgHue = 330;
+
+/* ===== INPUT ===== */
+const keys = {};
+window.addEventListener("keydown", e => { keys[e.code] = true; if (e.code === "Space") e.preventDefault(); });
+window.addEventListener("keyup", e => { keys[e.code] = false; });
+
+/* Touch joystick */
+let touchActive = false;
+let touchStartX = 0, touchStartY = 0;
+let touchDX = 0, touchDY = 0;
+const JOYSTICK_RADIUS = 50;
+const JOYSTICK_DEAD = 8;
+let joystickCenterX = 0, joystickCenterY = 0;
+let joystickVisible = false;
+
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  if (state === STATE_START) { startGame(); }
+  else if (state === STATE_OVER) { startGame(); }
+  const t = e.touches[0];
+  touchActive = true;
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  joystickCenterX = t.clientX;
+  joystickCenterY = t.clientY;
+  joystickVisible = state === STATE_PLAY;
+  touchDX = 0;
+  touchDY = 0;
+}, { passive: false });
+
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  if (!touchActive) return;
+  const t = e.touches[0];
+  let dx = t.clientX - touchStartX;
+  let dy = t.clientY - touchStartY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > JOYSTICK_RADIUS) {
+    dx = (dx / dist) * JOYSTICK_RADIUS;
+    dy = (dy / dist) * JOYSTICK_RADIUS;
+  }
+  touchDX = dist > JOYSTICK_DEAD ? dx / JOYSTICK_RADIUS : 0;
+  touchDY = dist > JOYSTICK_DEAD ? dy / JOYSTICK_RADIUS : 0;
+}, { passive: false });
+
+canvas.addEventListener("touchend", e => {
+  e.preventDefault();
+  touchActive = false;
+  touchDX = 0;
+  touchDY = 0;
+  joystickVisible = false;
+});
+
+canvas.addEventListener("click", () => {
+  if (state === STATE_START) startGame();
+  else if (state === STATE_OVER) startGame();
+});
+
+window.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    if (state === STATE_START) startGame();
+    else if (state === STATE_OVER) startGame();
+  }
+});
+
+/* ===== PLAYER ===== */
+const player = {
+  x: 0, y: 0,
+  speed: 200,
+  radius: 12,
+  facing: 1, /* 1=right, -1=left */
+  walkCycle: 0,
+  moving: false
+};
+
+function drawPlayer(p) {
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.scale(p.facing, 1);
+
+  const t = p.walkCycle * 8;
+  const legAnim = p.moving ? Math.sin(t) * 0.35 : 0;
+  const clawAnim = p.moving ? Math.sin(t * 0.7) * 0.2 : Math.sin(performance.now() * 0.002) * 0.08;
+  const bodyBob = p.moving ? Math.abs(Math.sin(t)) * 1.5 : 0;
+
+  /* === 6 Legs (3 per side) === */
+  ctx.strokeStyle = "#E85030";
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  for (let side = -1; side <= 1; side += 2) {
+    for (let i = 0; i < 3; i++) {
+      const angle = (i - 1) * 0.45 + legAnim * (i % 2 === 0 ? 1 : -1);
+      const lx = side * 11;
+      const ly = -2 + i * 5;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly);
+      ctx.lineTo(lx + side * 8 * Math.cos(angle), ly + 8 + 4 * Math.sin(angle));
+      ctx.stroke();
+    }
+  }
+
+  /* === Claws === */
+  for (let side = -1; side <= 1; side += 2) {
+    ctx.save();
+    ctx.translate(side * 13, -10);
+    ctx.rotate(side * (0.3 + clawAnim));
+    /* Arm */
+    ctx.strokeStyle = "#E85030";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(side * 6, -5);
+    ctx.stroke();
+    /* Pincer */
+    ctx.fillStyle = "#F06040";
+    ctx.beginPath();
+    ctx.moveTo(side * 6, -5);
+    ctx.lineTo(side * 12, -10);
+    ctx.lineTo(side * 8, -5);
+    ctx.lineTo(side * 12, 0);
+    ctx.lineTo(side * 6, -5);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* === Body (oval shell) === */
+  const by = -4 - bodyBob;
+  ctx.fillStyle = "#F06040";
+  ctx.beginPath();
+  ctx.ellipse(0, by, 13, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* Shell shine */
+  ctx.fillStyle = "#F8806A";
+  ctx.beginPath();
+  ctx.ellipse(-3, by - 3, 7, 5, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  /* Shell highlight */
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(-4, by - 5, 4, 2.5, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* === Eyes === */
+  /* Eye stalks */
+  ctx.strokeStyle = "#E85030";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-5, by - 8);
+  ctx.lineTo(-6, by - 15);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(5, by - 8);
+  ctx.lineTo(6, by - 15);
+  ctx.stroke();
+  /* Eye whites */
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(-6, by - 16, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(6, by - 16, 4, 0, Math.PI * 2);
+  ctx.fill();
+  /* Pupils */
+  ctx.fillStyle = "#1A1A2E";
+  ctx.beginPath();
+  ctx.arc(-5, by - 16, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(7, by - 16, 2, 0, Math.PI * 2);
+  ctx.fill();
+  /* Eye shine */
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(-4.5, by - 17, 0.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(7.5, by - 17, 0.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* === Blush === */
+  ctx.fillStyle = "rgba(255,150,150,0.4)";
+  ctx.beginPath();
+  ctx.ellipse(-10, by, 3, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(10, by, 3, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* === Smile === */
+  ctx.strokeStyle = "#8B2010";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(0, by + 2, 3.5, 0.15, Math.PI - 0.15);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* ===== ENEMIES ===== */
+const RAINBOW_MAGE = 0;
+const SPARKLE_KNIGHT = 1;
+
+function createEnemy(type, x, y) {
+  return {
+    type: type,
+    x: x, y: y,
+    radius: 13,
+    speed: type === SPARKLE_KNIGHT ? 120 : 100,
+    bobPhase: Math.random() * Math.PI * 2,
+    wanderAngle: Math.random() * Math.PI * 2,
+    wanderTimer: 0
+  };
+}
+
+function drawRainbowMage(e, bob) {
+  ctx.save();
+  ctx.translate(e.x, e.y + bob);
+
+  const facing = e.x < player.x ? 1 : -1;
+  ctx.scale(facing, 1);
+
+  /* Dress */
+  /* Pink top */
+  ctx.fillStyle = "#FF8FAB";
+  ctx.fillRect(-7, -2, 14, 8);
+  /* Green band */
+  ctx.fillStyle = "#7EC8A0";
+  ctx.fillRect(-8, 6, 16, 4);
+  /* Yellow band */
+  ctx.fillStyle = "#FFD93D";
+  ctx.fillRect(-9, 10, 18, 4);
+  /* Purple band */
+  ctx.fillStyle = "#C77DBA";
+  ctx.fillRect(-10, 14, 20, 4);
+
+  /* Legs */
+  ctx.fillStyle = "#FFE0D0";
+  ctx.fillRect(-4, 18, 3, 5);
+  ctx.fillRect(1, 18, 3, 5);
+  /* Silver shoes */
+  ctx.fillStyle = "#C0C0C0";
+  ctx.fillRect(-5, 22, 4, 2);
+  ctx.fillRect(1, 22, 4, 2);
+
+  /* Arms */
+  ctx.fillStyle = "#FFE0D0";
+  ctx.fillRect(-10, 0, 3, 8);
+  ctx.fillRect(7, 0, 3, 8);
+
+  /* Head */
+  ctx.fillStyle = "#FFE0D0";
+  ctx.beginPath();
+  ctx.arc(0, -10, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* Hair - light brown with bangs */
+  ctx.fillStyle = "#8B6842";
+  ctx.beginPath();
+  ctx.arc(0, -12, 9, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(-9, -14, 18, 5);
+  /* Bangs */
+  ctx.fillRect(-7, -10, 4, 5);
+  ctx.fillRect(-2, -9, 3, 4);
+  ctx.fillRect(3, -10, 4, 5);
+  /* Side hair */
+  ctx.fillRect(-10, -10, 3, 16);
+  ctx.fillRect(7, -10, 3, 16);
+
+  /* Eyes */
+  ctx.fillStyle = "#1A1A2E";
+  ctx.beginPath();
+  ctx.ellipse(-4, -10, 2.5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(4, -10, 2.5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* Eye shine */
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(-3, -11, 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(5, -11, 1, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* Blush */
+  ctx.fillStyle = "rgba(255, 150, 150, 0.5)";
+  ctx.beginPath();
+  ctx.ellipse(-6, -6, 2.5, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(6, -6, 2.5, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* Smile */
+  ctx.strokeStyle = "#D46A6A";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -5, 2.5, 0.1, Math.PI - 0.1);
+  ctx.stroke();
+
+  ctx.restore();
+
+  /* Sparkle effect */
+  const sparkleT = performance.now() * 0.003;
+  const sx = e.x + Math.cos(sparkleT) * 18;
+  const sy = e.y - 10 + Math.sin(sparkleT * 1.3) * 8 + bob;
+  drawSparkle(sx, sy, 4, "#FFD700");
+}
+
+function drawSparkleKnight(e, bob) {
+  ctx.save();
+  ctx.translate(e.x, e.y + bob);
+
+  const facing = e.x < player.x ? 1 : -1;
+  ctx.scale(facing, 1);
+
+  /* Purple tutu skirt */
+  ctx.fillStyle = "#B57EDC";
+  ctx.beginPath();
+  ctx.moveTo(-10, 8);
+  ctx.lineTo(10, 8);
+  ctx.lineTo(12, 18);
+  ctx.lineTo(-12, 18);
+  ctx.closePath();
+  ctx.fill();
+  /* Tutu frills */
+  ctx.fillStyle = "#C99BE5";
+  for (let i = -10; i < 10; i += 4) {
+    ctx.beginPath();
+    ctx.arc(i, 18, 2.5, 0, Math.PI);
+    ctx.fill();
+  }
+
+  /* White top */
+  ctx.fillStyle = "#FFF";
+  ctx.fillRect(-7, -2, 14, 12);
+  /* Jellyfish design */
+  ctx.fillStyle = "#FFB6C1";
+  ctx.beginPath();
+  ctx.arc(0, 4, 3, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(-3, 4, 6, 2);
+  ctx.strokeStyle = "#FFB6C1";
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(-2, 6); ctx.lineTo(-2, 9);
+  ctx.moveTo(0, 6); ctx.lineTo(0, 9);
+  ctx.moveTo(2, 6); ctx.lineTo(2, 9);
+  ctx.stroke();
+
+  /* Legs */
+  ctx.fillStyle = "#FFE0D0";
+  ctx.fillRect(-4, 18, 3, 5);
+  ctx.fillRect(1, 18, 3, 5);
+  /* Dark sneakers */
+  ctx.fillStyle = "#333";
+  ctx.fillRect(-5, 22, 4, 3);
+  ctx.fillRect(1, 22, 4, 3);
+  /* Shoe detail */
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-4, 23, 2, 1);
+  ctx.fillRect(2, 23, 2, 1);
+
+  /* Arms */
+  ctx.fillStyle = "#FFE0D0";
+  ctx.fillRect(-10, 0, 3, 8);
+  ctx.fillRect(7, 0, 3, 8);
+
+  /* Head */
+  ctx.fillStyle = "#FFE0D0";
+  ctx.beginPath();
+  ctx.arc(0, -10, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* Hair - dark brown, long with bangs */
+  ctx.fillStyle = "#3B2314";
+  ctx.beginPath();
+  ctx.arc(0, -12, 9, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(-9, -14, 18, 5);
+  /* Bangs */
+  ctx.fillRect(-8, -10, 5, 5);
+  ctx.fillRect(-1, -9, 3, 4);
+  ctx.fillRect(4, -10, 4, 5);
+  /* Long side hair */
+  ctx.fillRect(-10, -10, 3, 22);
+  ctx.fillRect(7, -10, 3, 22);
+  /* Back hair */
+  ctx.fillRect(-8, -5, 2, 20);
+  ctx.fillRect(6, -5, 2, 20);
+
+  /* Eyes */
+  ctx.fillStyle = "#1A1A2E";
+  ctx.beginPath();
+  ctx.ellipse(-4, -10, 2.5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(4, -10, 2.5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* Eye shine */
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(-3, -11, 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(5, -11, 1, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* Blush */
+  ctx.fillStyle = "rgba(255, 150, 150, 0.5)";
+  ctx.beginPath();
+  ctx.ellipse(-6, -6, 2.5, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(6, -6, 2.5, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* Smile */
+  ctx.strokeStyle = "#D46A6A";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -5, 2.5, 0.1, Math.PI - 0.1);
+  ctx.stroke();
+
+  ctx.restore();
+
+  /* Sparkle effect */
+  const sparkleT = performance.now() * 0.004;
+  const sx = e.x + Math.sin(sparkleT) * 16;
+  const sy = e.y - 14 + Math.cos(sparkleT * 0.7) * 6 + bob;
+  drawSparkle(sx, sy, 3.5, "#E0B0FF");
+}
+
+function drawSparkle(x, y, size, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.6 + Math.sin(performance.now() * 0.005) * 0.4;
+  /* Diamond shape */
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size * 0.4, 0);
+  ctx.moveTo(0, size);
+  ctx.lineTo(-size * 0.4, 0);
+  ctx.moveTo(-size, 0);
+  ctx.lineTo(0, -size * 0.4);
+  ctx.moveTo(size, 0);
+  ctx.lineTo(0, size * 0.4);
+  ctx.closePath();
+  /* Actually draw as a filled diamond */
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size * 0.35, 0);
+  ctx.lineTo(0, size);
+  ctx.lineTo(-size * 0.35, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-size, 0);
+  ctx.lineTo(0, size * 0.35);
+  ctx.lineTo(size, 0);
+  ctx.lineTo(0, -size * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ===== PARTICLES ===== */
+function spawnBgParticles(count) {
+  for (let i = 0; i < count; i++) {
+    bgParticles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: 2 + Math.random() * 4,
+      speed: 10 + Math.random() * 20,
+      type: Math.random() < 0.5 ? "heart" : "star",
+      alpha: 0.15 + Math.random() * 0.25,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function spawnSparkleParticles(x, y, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 30 + Math.random() * 80;
+    particles.push({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 0.5 + Math.random() * 0.5,
+      maxLife: 0.5 + Math.random() * 0.5,
+      size: 2 + Math.random() * 3,
+      color: ["#FFD700", "#FF69B4", "#E0B0FF", "#87CEEB", "#FFB6C1"][Math.floor(Math.random() * 5)]
+    });
+  }
+}
+
+function spawnDust(x, y) {
+  for (let i = 0; i < 2; i++) {
+    dustParticles.push({
+      x: x + (Math.random() - 0.5) * 6,
+      y: y + 20,
+      vx: (Math.random() - 0.5) * 15,
+      vy: -5 - Math.random() * 10,
+      life: 0.2 + Math.random() * 0.2,
+      maxLife: 0.3,
+      size: 1.5 + Math.random() * 1.5
+    });
+  }
+}
+
+/* ===== GAME LOGIC ===== */
+function startGame() {
+  state = STATE_PLAY;
+  score = 0;
+  gameTime = 0;
+  spawnTimer = 0;
+  spawnInterval = 8;
+  speedMultiplier = 1;
+  nextEnemyType = 0;
+  enemies = [];
+  particles = [];
+  dustParticles = [];
+  player.x = W / 2;
+  player.y = H / 2;
+  player.walkCycle = 0;
+  player.moving = false;
+
+  /* Spawn initial enemies */
+  enemies.push(createEnemy(RAINBOW_MAGE, 80, 80));
+  enemies.push(createEnemy(SPARKLE_KNIGHT, W - 80, H - 80));
+  nextEnemyType = 0;
+}
+
+function spawnEnemy() {
+  const edge = Math.floor(Math.random() * 4);
+  let x, y;
+  const margin = 30;
+  switch (edge) {
+    case 0: x = Math.random() * W; y = -margin; break;
+    case 1: x = W + margin; y = Math.random() * H; break;
+    case 2: x = Math.random() * W; y = H + margin; break;
+    case 3: x = -margin; y = Math.random() * H; break;
+  }
+  const e = createEnemy(nextEnemyType, x, y);
+  enemies.push(e);
+  spawnSparkleParticles(x, y, 12);
+  nextEnemyType = nextEnemyType === 0 ? 1 : 0;
+}
+
+function gameOver() {
+  state = STATE_OVER;
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("kawaii-chase-highscore", highScore.toString());
+  }
+}
+
+/* ===== UPDATE ===== */
+let lastTime = 0;
+function update(dt) {
+  if (state !== STATE_PLAY) return;
+
+  gameTime += dt;
+  score = Math.floor(gameTime);
+
+  /* Difficulty scaling */
+  if (gameTime > 0) {
+    speedMultiplier = 1 + gameTime * 0.004;
+    spawnInterval = Math.max(3, 8 - gameTime * 0.05);
+  }
+
+  /* Player input */
+  let dx = 0, dy = 0;
+  if (keys["ArrowLeft"] || keys["KeyA"]) dx -= 1;
+  if (keys["ArrowRight"] || keys["KeyD"]) dx += 1;
+  if (keys["ArrowUp"] || keys["KeyW"]) dy -= 1;
+  if (keys["ArrowDown"] || keys["KeyS"]) dy += 1;
+
+  /* Touch joystick */
+  if (touchActive) {
+    dx += touchDX;
+    dy += touchDY;
+  }
+
+  const mag = Math.sqrt(dx * dx + dy * dy);
+  if (mag > 0.01) {
+    dx /= mag;
+    dy /= mag;
+    player.x += dx * player.speed * dt;
+    player.y += dy * player.speed * dt;
+    player.moving = true;
+    player.walkCycle += dt;
+    if (dx !== 0) player.facing = dx > 0 ? 1 : -1;
+    /* Dust particles */
+    if (Math.random() < 0.3) spawnDust(player.x, player.y);
+  } else {
+    player.moving = false;
+  }
+
+  /* Clamp player to bounds */
+  player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
+  player.y = Math.max(player.radius + 20, Math.min(H - player.radius - 10, player.y));
+
+  /* Enemy spawning */
+  spawnTimer += dt;
+  if (spawnTimer >= spawnInterval) {
+    spawnTimer = 0;
+    spawnEnemy();
+    if (gameTime > 60 && Math.random() < 0.5) {
+      spawnEnemy();
+    }
+  }
+
+  /* Enemy movement */
+  for (const e of enemies) {
+    e.bobPhase += dt * 3;
+    const targetX = player.x;
+    const targetY = player.y;
+    let edx = targetX - e.x;
+    let edy = targetY - e.y;
+    const edist = Math.sqrt(edx * edx + edy * edy);
+    if (edist > 1) {
+      edx /= edist;
+      edy /= edist;
+    }
+
+    let speed = e.speed * speedMultiplier;
+
+    if (e.type === SPARKLE_KNIGHT) {
+      /* Sparkle Knight: slightly faster but wanders */
+      e.wanderTimer += dt;
+      if (e.wanderTimer > 0.8 + Math.random() * 0.5) {
+        e.wanderTimer = 0;
+        e.wanderAngle = Math.atan2(edy, edx) + (Math.random() - 0.5) * 1.2;
+      }
+      const wa = e.wanderAngle;
+      edx = edx * 0.6 + Math.cos(wa) * 0.4;
+      edy = edy * 0.6 + Math.sin(wa) * 0.4;
+      const nm = Math.sqrt(edx * edx + edy * edy);
+      if (nm > 0) { edx /= nm; edy /= nm; }
+    }
+
+    e.x += edx * speed * dt;
+    e.y += edy * speed * dt;
+
+    /* Collision */
+    const cx = player.x - e.x;
+    const cy = player.y - e.y;
+    const cd = Math.sqrt(cx * cx + cy * cy);
+    if (cd < player.radius + e.radius) {
+      gameOver();
+      return;
+    }
+  }
+
+  /* Update particles */
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 40 * dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  for (let i = dustParticles.length - 1; i >= 0; i--) {
+    const d = dustParticles[i];
+    d.life -= dt;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    if (d.life <= 0) dustParticles.splice(i, 1);
+  }
+
+  /* Background particles */
+  for (const bp of bgParticles) {
+    bp.y -= bp.speed * dt;
+    bp.x += Math.sin(bp.phase + gameTime * 0.5) * 0.3;
+    if (bp.y < -10) {
+      bp.y = H + 10;
+      bp.x = Math.random() * W;
+    }
+  }
+
+  bgHue = 330 + Math.sin(gameTime * 0.1) * 20;
+}
+
+/* ===== DRAW ===== */
+function drawBackground() {
+  const h1 = bgHue;
+  const h2 = (bgHue + 30) % 360;
+  const grad = ctx.createLinearGradient(0, 0, W * 0.3, H);
+  grad.addColorStop(0, `hsl(${h1}, 60%, 85%)`);
+  grad.addColorStop(0.5, `hsl(${(h1 + h2) / 2}, 50%, 88%)`);
+  grad.addColorStop(1, `hsl(${h2}, 55%, 82%)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawHeart(x, y, size) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + size * 0.3);
+  ctx.bezierCurveTo(x, y, x - size, y, x - size, y + size * 0.3);
+  ctx.bezierCurveTo(x - size, y + size * 0.7, x, y + size, x, y + size * 1.2);
+  ctx.bezierCurveTo(x, y + size, x + size, y + size * 0.7, x + size, y + size * 0.3);
+  ctx.bezierCurveTo(x + size, y, x, y, x, y + size * 0.3);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawStar(x, y, size) {
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+    const px = x + Math.cos(angle) * size;
+    const py = y + Math.sin(angle) * size;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawBgParticles() {
+  for (const bp of bgParticles) {
+    ctx.fillStyle = bp.type === "heart"
+      ? `rgba(255, 180, 200, ${bp.alpha})`
+      : `rgba(255, 230, 150, ${bp.alpha})`;
+    if (bp.type === "heart") {
+      drawHeart(bp.x, bp.y, bp.size);
+    } else {
+      drawStar(bp.x, bp.y, bp.size);
+    }
+  }
+}
+
+function drawDustParticles() {
+  for (const d of dustParticles) {
+    const a = d.life / d.maxLife;
+    ctx.fillStyle = `rgba(200, 180, 160, ${a * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, d.size * a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const a = p.life / p.maxLife;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawHUD() {
+  const isMobile = W < 600;
+  /* Score */
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath();
+  const scoreW = isMobile ? 90 : 120;
+  const scoreH = isMobile ? 30 : 36;
+  ctx.roundRect(W / 2 - scoreW / 2, 8, scoreW, scoreH, scoreH / 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold " + (isMobile ? "16" : "20") + "px 'Segoe UI', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(score + "s", W / 2, 8 + scoreH / 2);
+
+  /* Enemy count */
+  ctx.fillStyle = "rgba(0,0,0,0.1)";
+  ctx.beginPath();
+  ctx.roundRect(W - 90, 8, 80, 28, 14);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.font = "14px 'Segoe UI', sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(enemies.length + " chasers", W - 50, 22);
+}
+
+function drawJoystick() {
+  if (!joystickVisible) return;
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(joystickCenterX, joystickCenterY, JOYSTICK_RADIUS, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(
+    joystickCenterX + touchDX * JOYSTICK_RADIUS,
+    joystickCenterY + touchDY * JOYSTICK_RADIUS,
+    15, 0, Math.PI * 2
+  );
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawStartScreen() {
+  drawBackground();
+  drawBgParticles();
+
+  const isMobile = W < 600;
+  const cx = W / 2;
+  /* Use absolute spacing from center to keep everything visible */
+  const cy = isMobile ? H * 0.35 : H * 0.42;
+
+  /* Title */
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const titleSize = isMobile ? 32 : 48;
+  ctx.font = "bold " + titleSize + "px 'Segoe UI', sans-serif";
+
+  /* Title shadow */
+  ctx.fillStyle = "rgba(180, 100, 150, 0.3)";
+  ctx.fillText("Kawaii Chase", cx + 2, cy - 120 + 2);
+  ctx.fillStyle = "#FF69B4";
+  ctx.fillText("Kawaii Chase", cx, cy - 120);
+
+  /* Subtitle */
+  ctx.font = (isMobile ? "15" : "18") + "px 'Segoe UI', sans-serif";
+  ctx.fillStyle = "#B06090";
+  ctx.fillText("Dodge the cute chasers!", cx, cy - 80);
+
+  /* Player preview */
+  const previewPlayer = {
+    x: cx, y: cy - 40,
+    facing: 1, moving: false, walkCycle: 0
+  };
+  drawPlayer(previewPlayer);
+
+  /* Draw enemy characters */
+  ctx.save();
+  const previewMage = { x: cx - 60, y: cy + 30, type: RAINBOW_MAGE };
+  const previewKnight = { x: cx + 60, y: cy + 30, type: SPARKLE_KNIGHT };
+  const bob = Math.sin(performance.now() * 0.003) * 3;
+  drawRainbowMage(previewMage, bob);
+  drawSparkleKnight(previewKnight, -bob);
+
+  /* Labels */
+  ctx.font = "11px 'Segoe UI', sans-serif";
+  ctx.fillStyle = "#8B6842";
+  ctx.fillText("Rainbow Mage", cx - 60, cy + 68);
+  ctx.fillStyle = "#3B2314";
+  ctx.fillText("Sparkle Knight", cx + 60, cy + 68);
+  ctx.restore();
+
+  /* Start prompt */
+  const pulseAlpha = 0.5 + Math.sin(performance.now() * 0.004) * 0.3;
+  ctx.globalAlpha = pulseAlpha;
+  ctx.font = "bold " + (isMobile ? "18" : "22") + "px 'Segoe UI', sans-serif";
+  ctx.fillStyle = "#fff";
+  const startText = isMobile ? "Tap to Start" : "Press SPACE or Tap to Start";
+  ctx.fillText(startText, cx, cy + 110);
+  ctx.globalAlpha = 1;
+
+  /* Controls */
+  ctx.font = (isMobile ? "12" : "14") + "px 'Segoe UI', sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  if (isMobile) {
+    ctx.fillText("Touch & drag to move", cx, cy + 140);
+  } else {
+    ctx.fillText("Arrow Keys / WASD to move", cx, cy + 140);
+    ctx.fillText("Touch & drag on mobile", cx, cy + 160);
+  }
+
+  /* High score */
+  if (highScore > 0) {
+    ctx.font = (isMobile ? "14" : "16") + "px 'Segoe UI', sans-serif";
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText("Best: " + highScore + "s", cx, cy + (isMobile ? 170 : 190));
+  }
+}
+
+function drawGameOverScreen() {
+  /* Dim overlay */
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.fillRect(0, 0, W, H);
+
+  /* Panel */
+  const isMobile = W < 600;
+  const pw = isMobile ? Math.min(260, W - 40) : 280;
+  const ph = isMobile ? 200 : 220;
+  const px = (W - pw) / 2, py = (H - ph) / 2;
+  ctx.fillStyle = "rgba(255, 240, 245, 0.95)";
+  ctx.beginPath();
+  ctx.roundRect(px, py, pw, ph, 20);
+  ctx.fill();
+
+  ctx.strokeStyle = "#FF69B4";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(px, py, pw, ph, 20);
+  ctx.stroke();
+
+  /* Game Over text */
+  ctx.fillStyle = "#FF69B4";
+  ctx.font = "bold 32px 'Segoe UI', sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Game Over!", W / 2, py + 50);
+
+  /* Score */
+  ctx.fillStyle = "#444";
+  ctx.font = "22px 'Segoe UI', sans-serif";
+  ctx.fillText("Score: " + score + "s", W / 2, py + 90);
+
+  /* High score */
+  if (score >= highScore) {
+    ctx.fillStyle = "#FFD700";
+    ctx.font = "bold 18px 'Segoe UI', sans-serif";
+    ctx.fillText("New Best!", W / 2, py + 118);
+  } else {
+    ctx.fillStyle = "#888";
+    ctx.font = "16px 'Segoe UI', sans-serif";
+    ctx.fillText("Best: " + highScore + "s", W / 2, py + 118);
+  }
+
+  /* Retry prompt */
+  const pulseAlpha = 0.5 + Math.sin(performance.now() * 0.004) * 0.3;
+  ctx.globalAlpha = pulseAlpha;
+  ctx.fillStyle = "#FF69B4";
+  ctx.font = "bold " + (isMobile ? "16" : "18") + "px 'Segoe UI', sans-serif";
+  const retryText = isMobile ? "Tap to Retry" : "Press SPACE or Tap to Retry";
+  ctx.fillText(retryText, W / 2, py + 165);
+  ctx.globalAlpha = 1;
+
+  /* Enemy count survived */
+  ctx.fillStyle = "#aaa";
+  ctx.font = "13px 'Segoe UI', sans-serif";
+  ctx.fillText("Survived " + enemies.length + " chasers", W / 2, py + 195);
+}
+
+/* ===== MAIN LOOP ===== */
+spawnBgParticles(25);
+
+function gameLoop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+
+  /* Keep bg particles at the right count after resize */
+  if (bgParticles.length < 20) spawnBgParticles(25 - bgParticles.length);
+
+  update(dt);
+
+  /* Background particles always update */
+  if (state !== STATE_PLAY) {
+    for (const bp of bgParticles) {
+      bp.y -= bp.speed * dt * 0.3;
+      bp.x += Math.sin(bp.phase + performance.now() * 0.0005) * 0.3;
+      if (bp.y < -10) { bp.y = H + 10; bp.x = Math.random() * W; }
+    }
+  }
+
+  /* Draw */
+  if (state === STATE_START) {
+    drawStartScreen();
+  } else if (state === STATE_PLAY) {
+    drawBackground();
+    drawBgParticles();
+    drawDustParticles();
+
+    /* Draw enemies */
+    for (const e of enemies) {
+      const bob = Math.sin(e.bobPhase) * 2.5;
+      if (e.type === RAINBOW_MAGE) drawRainbowMage(e, bob);
+      else drawSparkleKnight(e, bob);
+    }
+
+    drawPlayer(player);
+    drawParticles();
+    drawHUD();
+    drawJoystick();
+  } else if (state === STATE_OVER) {
+    drawBackground();
+    drawBgParticles();
+
+    for (const e of enemies) {
+      const bob = Math.sin(e.bobPhase + performance.now() * 0.002) * 2;
+      if (e.type === RAINBOW_MAGE) drawRainbowMage(e, bob);
+      else drawSparkleKnight(e, bob);
+    }
+
+    drawPlayer(player);
+    drawGameOverScreen();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(ts => {
+  lastTime = ts;
+  gameLoop(ts);
+});
+</script>
+</body>
+</html>
