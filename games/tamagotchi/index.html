@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tamagotchi - Bichinho Virtual</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(135deg, #FFE4EC, #FFF0F5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 0;
+      left: 0;
+      padding: 12px 16px;
+      color: #e91e8a;
+      text-decoration: none;
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      z-index: 100;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    #gameContainer {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      aspect-ratio: 1;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #gameUI {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    #topPanel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border-radius: 0 0 16px 16px;
+      pointer-events: auto;
+      padding-bottom: 8px;
+    }
+
+    #petHeader {
+      text-align: center;
+      padding: 10px 12px 4px;
+    }
+
+    #petNameLabel {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 12px;
+      color: #e91e8a;
+    }
+
+    #stageLabel {
+      font-size: 13px;
+      margin-left: 8px;
+      color: #888;
+    }
+
+    #sickIndicator {
+      display: block;
+      color: #FF4444;
+      font-weight: 600;
+      font-size: 12px;
+      animation: pulse 1s infinite;
+    }
+
+    #statsContainer {
+      padding: 0 16px;
+      pointer-events: auto;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      min-width: 100px;
+      color: #666;
+    }
+
+    .bar {
+      flex: 1;
+      height: 14px;
+      background: #eee;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 7px;
+      transition: width 0.3s ease;
+      background: #4CAF50;
+    }
+
+    #actions {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      justify-content: center;
+      pointer-events: auto;
+    }
+
+    .action-btn {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #FF69B4, #FF1493);
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 90px;
+      touch-action: manipulation;
+    }
+
+    .action-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(255, 20, 147, 0.3);
+    }
+
+    .action-btn:disabled {
+      opacity: 0.4;
+      transform: none;
+      cursor: not-allowed;
+    }
+
+    #deathScreen {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      text-align: center;
+      z-index: 10;
+    }
+
+    #deathScreen h2 {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 14px;
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+
+    #deathScreen p {
+      font-size: 16px;
+      margin-bottom: 24px;
+    }
+
+    #confirmModal {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+    }
+
+    .confirm-box {
+      background: white;
+      border-radius: 20px;
+      padding: 24px 32px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .confirm-box h2 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 18px;
+      color: #e91e8a;
+      margin-bottom: 8px;
+    }
+
+    .confirm-box p {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .cancel-btn {
+      background: linear-gradient(135deg, #aaa, #888) !important;
+    }
+
+    #selectScreen {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #FFE4EC, #E8D5F5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
+    }
+
+    .select-title {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 18px;
+      color: #e91e8a;
+      margin-bottom: 8px;
+    }
+
+    .select-subtitle {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 18px;
+      color: #666;
+      margin-bottom: 24px;
+      font-weight: 400;
+    }
+
+    .pet-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .pet-option {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pet-option:hover {
+      border-color: #FF69B4;
+      transform: scale(1.05);
+    }
+
+    .pet-option.selected {
+      border-color: #FF1493;
+      background: #FFF0F5;
+      box-shadow: 0 4px 12px rgba(255, 20, 147, 0.2);
+    }
+
+    .pet-emoji {
+      font-size: 36px;
+    }
+
+    .pet-type-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .pet-trait {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .name-input-container {
+      margin-bottom: 16px;
+    }
+
+    #petNameInput {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px;
+      padding: 10px 16px;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      outline: none;
+      text-align: center;
+      width: 200px;
+    }
+
+    #petNameInput:focus {
+      border-color: #FF69B4;
+    }
+
+    .reset-btn {
+      background: linear-gradient(135deg, #aaa, #888);
+      min-width: 44px;
+      padding: 12px;
+    }
+
+    .reset-btn:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .adopt-btn {
+      font-size: 16px;
+      padding: 14px 32px;
+      min-width: 160px;
+    }
+
+    .food-option {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border: 2px solid #FFB6C1;
+      border-radius: 12px;
+      background: white;
+      color: #333;
+      cursor: pointer;
+      transition: all 0.2s;
+      touch-action: manipulation;
+      min-width: 48px;
+    }
+
+    .food-option:hover {
+      background: #FFF0F5;
+      border-color: #FF69B4;
+      transform: scale(1.05);
+    }
+
+    .food-option:disabled {
+      opacity: 0.4;
+      transform: none;
+      cursor: not-allowed;
+    }
+
+    .egg-bar .bar-fill {
+      background: linear-gradient(90deg, #FFB74D, #FFA726) !important;
+    }
+
+    #gameCanvas {
+      cursor: pointer;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @media (max-width: 480px) {
+      .action-btn {
+        font-size: 12px;
+        padding: 10px 12px;
+      }
+
+      .select-title {
+        font-size: 14px;
+      }
+
+      .pet-options {
+        gap: 8px;
+      }
+
+      .pet-option {
+        padding: 12px;
+      }
+
+      .pet-emoji {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a href="../../" class="back-link">&larr; Voltar</a>
+
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="gameUI" style="display:none">
+      <div id="topPanel">
+        <div id="petHeader">
+          <span id="petNameLabel"></span>
+          <span id="stageLabel"></span>
+          <span id="sickIndicator" style="display:none">🤒 Doente!</span>
+        </div>
+        <div id="statsContainer">
+          <div class="stat-row" id="eggProgressRow" style="display:none">
+            <span class="stat-label">🥚 Chocando</span>
+            <div class="bar egg-bar" id="eggBar"><div class="bar-fill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="actions">
+        <button class="food-option" data-food="meat">🍖</button>
+        <button class="food-option" data-food="fruit">🍎</button>
+        <button class="food-option" data-food="cake">🍰</button>
+        <button class="food-option" data-food="salad">🥗</button>
+        <button id="btnReset" class="action-btn reset-btn">🔄</button>
+      </div>
+    </div>
+
+    <div id="deathScreen" style="display:none">
+      <h2>😢 Seu bichinho partiu...</h2>
+      <p>Ele virou uma estrelinha no céu.</p>
+      <button id="btnNewPetDeath" class="action-btn adopt-btn">🥚 Adotar Novo Bichinho</button>
+    </div>
+
+    <div id="confirmModal" style="display:none">
+      <div class="confirm-box">
+        <h2>🔄 Recomeçar?</h2>
+        <p>Seu bichinho será perdido para sempre!</p>
+        <div class="confirm-actions">
+          <button id="btnConfirmYes" class="action-btn">Sim</button>
+          <button id="btnConfirmNo" class="action-btn cancel-btn">Não</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="selectScreen" style="display:none">
+      <h1 class="select-title">🥚 Tamagotchi</h1>
+      <h2 class="select-subtitle">Escolha seu Bichinho!</h2>
+
+      <div class="pet-options">
+        <div class="pet-option" data-type="cat">
+          <span class="pet-emoji">🐱</span>
+          <span class="pet-type-name">Gatinho</span>
+          <span class="pet-trait">Independente</span>
+        </div>
+        <div class="pet-option" data-type="dog">
+          <span class="pet-emoji">🐶</span>
+          <span class="pet-type-name">Cachorro</span>
+          <span class="pet-trait">Comilão</span>
+        </div>
+        <div class="pet-option" data-type="bunny">
+          <span class="pet-emoji">🐰</span>
+          <span class="pet-type-name">Coelho</span>
+          <span class="pet-trait">Tranquilo</span>
+        </div>
+        <div class="pet-option" data-type="chick">
+          <span class="pet-emoji">🐤</span>
+          <span class="pet-type-name">Pintinho</span>
+          <span class="pet-trait">Fofinho</span>
+        </div>
+      </div>
+
+      <div class="name-input-container">
+        <input type="text" id="petNameInput" placeholder="Nome do bichinho..." maxlength="12">
+      </div>
+
+      <button id="btnAdopt" class="action-btn adopt-btn" disabled>🥚 Adotar!</button>
+    </div>
+  </div>
+
+  <script src="js/config.js?v=10"></script>
+  <script src="js/pets.js?v=10"></script>
+  <script src="js/sprites.js?v=10"></script>
+  <script src="js/state.js?v=10"></script>
+  <script src="js/animation.js?v=10"></script>
+  <script src="js/simulation.js?v=10"></script>
+  <script src="js/input.js?v=10"></script>
+  <script src="js/render.js?v=10"></script>
+  <script src="js/main.js?v=10"></script>
+</body>
+</html>
