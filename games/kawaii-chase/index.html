@@ -295,21 +295,27 @@ function drawRainbowMage(e, bob) {
   ctx.fillRect(-10, 0, 3, 8);
   ctx.fillRect(7, 0, 3, 8);
 
+  /* Hair behind head */
+  ctx.fillStyle = "#8B6842";
+  ctx.beginPath();
+  ctx.arc(0, -11, 11, 0, Math.PI * 2);
+  ctx.fill();
+  /* Side hair */
+  ctx.fillRect(-11, -10, 3, 16);
+  ctx.fillRect(8, -10, 3, 16);
+
   /* Head */
   ctx.fillStyle = "#FFE0D0";
   ctx.beginPath();
   ctx.arc(0, -10, 9, 0, Math.PI * 2);
   ctx.fill();
 
-  /* Hair - light brown */
+  /* Hair fringe (top only) */
   ctx.fillStyle = "#8B6842";
   ctx.beginPath();
-  ctx.arc(0, -12, 9, Math.PI, Math.PI * 2);
+  ctx.arc(0, -12, 9.5, Math.PI, Math.PI * 2);
   ctx.fill();
-  ctx.fillRect(-9, -14, 18, 5);
-  /* Side hair (behind face) */
-  ctx.fillRect(-10, -10, 2, 16);
-  ctx.fillRect(8, -10, 2, 16);
+  ctx.fillRect(-9, -16, 18, 4);
 
   /* Eyes */
   ctx.fillStyle = "#1A1A2E";
@@ -412,24 +418,27 @@ function drawSparkleKnight(e, bob) {
   ctx.fillRect(-10, 0, 3, 8);
   ctx.fillRect(7, 0, 3, 8);
 
+  /* Hair behind head */
+  ctx.fillStyle = "#3B2314";
+  ctx.beginPath();
+  ctx.arc(0, -11, 11, 0, Math.PI * 2);
+  ctx.fill();
+  /* Long side hair */
+  ctx.fillRect(-11, -10, 3, 24);
+  ctx.fillRect(8, -10, 3, 24);
+
   /* Head */
   ctx.fillStyle = "#FFE0D0";
   ctx.beginPath();
   ctx.arc(0, -10, 9, 0, Math.PI * 2);
   ctx.fill();
 
-  /* Hair - dark brown, long */
+  /* Hair fringe (top only) */
   ctx.fillStyle = "#3B2314";
   ctx.beginPath();
-  ctx.arc(0, -12, 9, Math.PI, Math.PI * 2);
+  ctx.arc(0, -12, 9.5, Math.PI, Math.PI * 2);
   ctx.fill();
-  ctx.fillRect(-9, -14, 18, 5);
-  /* Long side hair (behind face) */
-  ctx.fillRect(-10, -10, 2, 22);
-  ctx.fillRect(8, -10, 2, 22);
-  /* Back hair */
-  ctx.fillRect(-9, -5, 1, 20);
-  ctx.fillRect(8, -5, 1, 20);
+  ctx.fillRect(-9, -16, 18, 4);
 
   /* Eyes */
   ctx.fillStyle = "#1A1A2E";
