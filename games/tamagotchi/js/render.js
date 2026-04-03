@@ -5,9 +5,19 @@ function render(ctx, canvas) {
   // Clear
   ctx.clearRect(0, 0, w, h);
 
+  // Fill background to full canvas (no letterbox)
+  ctx.save();
+  const bgScale = Math.max(w / CFG.canvasWidth, h / CFG.canvasHeight);
+  const bgOffX = (w - CFG.canvasWidth * bgScale) / 2;
+  const bgOffY = (h - CFG.canvasHeight * bgScale) / 2;
+  ctx.translate(bgOffX, bgOffY);
+  ctx.scale(bgScale, bgScale);
+  drawBackground(ctx, CFG.canvasWidth, CFG.canvasHeight);
+  ctx.restore();
+
   ctx.save();
 
-  // Scale to fit logical size into canvas
+  // Scale game content to fit width
   const scaleX = w / CFG.canvasWidth;
   const scaleY = h / CFG.canvasHeight;
   const scale = Math.min(scaleX, scaleY);
@@ -15,9 +25,6 @@ function render(ctx, canvas) {
   const offsetY = (h - CFG.canvasHeight * scale) / 2;
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
-
-  // Background
-  drawBackground(ctx, CFG.canvasWidth, CFG.canvasHeight);
 
   // Draw poops
   for (const poop of gameState.poops) {
@@ -33,9 +40,9 @@ function render(ctx, canvas) {
   if (gameState.isDead) {
     drawDeathScene(ctx, petX, petY, gameState.petType);
   } else if (gameState.stage === 'egg') {
-    // Use totalAge to determine crack level
     const crackLevel = Math.min(3, Math.floor((gameState.totalAge / CFG.eggDurationMin) * 3));
-    drawEgg(ctx, petX, petY, frame, gameState.petType, crackLevel);
+    const eggY = CFG.canvasHeight * 0.63;
+    drawEgg(ctx, petX, eggY, frame, gameState.petType, crackLevel);
   } else {
     drawPet(ctx, petX, petY, frame, gameState.petType, gameState.stage, anim);
   }

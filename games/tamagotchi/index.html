@@ -51,6 +51,50 @@
       overflow: hidden;
     }
 
+    @media (max-width: 520px) {
+      body {
+        background: white;
+        align-items: stretch;
+      }
+
+      #gameContainer {
+        max-width: 100%;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        aspect-ratio: auto;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      #gameUI {
+        z-index: 5;
+      }
+
+      #actions {
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        padding: 14px 8px calc(env(safe-area-inset-bottom, 16px) + 16px);
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
+      }
+
+      .food-option {
+        font-size: 24px;
+        padding: 12px 16px;
+        min-width: 56px;
+      }
+
+      .reset-btn {
+        padding: 12px 14px;
+      }
+
+      .back-link {
+        z-index: 200;
+      }
+    }
+
     #gameCanvas {
       width: 100%;
       height: 100%;
@@ -491,14 +535,14 @@
     </div>
   </div>
 
-  <script src="js/config.js?v=10"></script>
-  <script src="js/pets.js?v=10"></script>
-  <script src="js/sprites.js?v=10"></script>
-  <script src="js/state.js?v=10"></script>
-  <script src="js/animation.js?v=10"></script>
-  <script src="js/simulation.js?v=10"></script>
-  <script src="js/input.js?v=10"></script>
-  <script src="js/render.js?v=10"></script>
-  <script src="js/main.js?v=10"></script>
+  <script src="js/config.js?v=15"></script>
+  <script src="js/pets.js?v=15"></script>
+  <script src="js/sprites.js?v=15"></script>
+  <script src="js/state.js?v=15"></script>
+  <script src="js/animation.js?v=15"></script>
+  <script src="js/simulation.js?v=15"></script>
+  <script src="js/input.js?v=15"></script>
+  <script src="js/render.js?v=15"></script>
+  <script src="js/main.js?v=15"></script>
 </body>
 </html>

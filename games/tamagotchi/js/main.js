@@ -48,9 +48,8 @@ function init() {
 
 function resizeCanvas() {
   const container = canvas.parentElement;
-  const size = Math.min(container.clientWidth, container.clientHeight, 500);
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
 }
 
 function gameLoop(timestamp) {
