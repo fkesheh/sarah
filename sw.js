@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sarah-games-v3';
+const CACHE_NAME = 'sarah-games-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
