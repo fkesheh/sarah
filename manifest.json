@@ -2,7 +2,7 @@
   "name": "Sarah Games",
   "short_name": "Sarah",
   "description": "Coleção de jogos divertidos!",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#667eea",
   "theme_color": "#667eea",
