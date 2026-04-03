@@ -56,43 +56,40 @@ const keys = {};
 window.addEventListener("keydown", e => { keys[e.code] = true; if (e.code === "Space") e.preventDefault(); });
 window.addEventListener("keyup", e => { keys[e.code] = false; });
 
-/* Touch joystick */
+/* Touch: tap/hold to move toward finger position */
 let touchActive = false;
-let touchStartX = 0, touchStartY = 0;
+let touchTargetX = 0, touchTargetY = 0;
 let touchDX = 0, touchDY = 0;
-const JOYSTICK_RADIUS = 50;
-const JOYSTICK_DEAD = 8;
-let joystickCenterX = 0, joystickCenterY = 0;
-let joystickVisible = false;
+const TOUCH_ARRIVE = 10;
+
+function screenToCanvas(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - r.left) * (canvas.width / r.width),
+    y: (clientY - r.top) * (canvas.height / r.height)
+  };
+}
 
 canvas.addEventListener("touchstart", e => {
   e.preventDefault();
   if (state === STATE_START) { startGame(); }
   else if (state === STATE_OVER) { startGame(); }
-  const t = e.touches[0];
-  touchActive = true;
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
-  joystickCenterX = t.clientX;
-  joystickCenterY = t.clientY;
-  joystickVisible = state === STATE_PLAY;
-  touchDX = 0;
-  touchDY = 0;
+  if (state === STATE_PLAY) {
+    const t = e.touches[0];
+    const p = screenToCanvas(t.clientX, t.clientY);
+    touchActive = true;
+    touchTargetX = p.x;
+    touchTargetY = p.y;
+  }
 }, { passive: false });
 
 canvas.addEventListener("touchmove", e => {
   e.preventDefault();
-  if (!touchActive) return;
+  if (!touchActive || state !== STATE_PLAY) return;
   const t = e.touches[0];
-  let dx = t.clientX - touchStartX;
-  let dy = t.clientY - touchStartY;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist > JOYSTICK_RADIUS) {
-    dx = (dx / dist) * JOYSTICK_RADIUS;
-    dy = (dy / dist) * JOYSTICK_RADIUS;
-  }
-  touchDX = dist > JOYSTICK_DEAD ? dx / JOYSTICK_RADIUS : 0;
-  touchDY = dist > JOYSTICK_DEAD ? dy / JOYSTICK_RADIUS : 0;
+  const p = screenToCanvas(t.clientX, t.clientY);
+  touchTargetX = p.x;
+  touchTargetY = p.y;
 }, { passive: false });
 
 canvas.addEventListener("touchend", e => {
@@ -100,7 +97,6 @@ canvas.addEventListener("touchend", e => {
   touchActive = false;
   touchDX = 0;
   touchDY = 0;
-  joystickVisible = false;
 });
 
 canvas.addEventListener("click", () => {
@@ -305,19 +301,15 @@ function drawRainbowMage(e, bob) {
   ctx.arc(0, -10, 9, 0, Math.PI * 2);
   ctx.fill();
 
-  /* Hair - light brown with bangs */
+  /* Hair - light brown */
   ctx.fillStyle = "#8B6842";
   ctx.beginPath();
   ctx.arc(0, -12, 9, Math.PI, Math.PI * 2);
   ctx.fill();
   ctx.fillRect(-9, -14, 18, 5);
-  /* Bangs */
-  ctx.fillRect(-7, -10, 4, 5);
-  ctx.fillRect(-2, -9, 3, 4);
-  ctx.fillRect(3, -10, 4, 5);
-  /* Side hair */
-  ctx.fillRect(-10, -10, 3, 16);
-  ctx.fillRect(7, -10, 3, 16);
+  /* Side hair (behind face) */
+  ctx.fillRect(-10, -10, 2, 16);
+  ctx.fillRect(8, -10, 2, 16);
 
   /* Eyes */
   ctx.fillStyle = "#1A1A2E";
@@ -426,22 +418,18 @@ function drawSparkleKnight(e, bob) {
   ctx.arc(0, -10, 9, 0, Math.PI * 2);
   ctx.fill();
 
-  /* Hair - dark brown, long with bangs */
+  /* Hair - dark brown, long */
   ctx.fillStyle = "#3B2314";
   ctx.beginPath();
   ctx.arc(0, -12, 9, Math.PI, Math.PI * 2);
   ctx.fill();
   ctx.fillRect(-9, -14, 18, 5);
-  /* Bangs */
-  ctx.fillRect(-8, -10, 5, 5);
-  ctx.fillRect(-1, -9, 3, 4);
-  ctx.fillRect(4, -10, 4, 5);
-  /* Long side hair */
-  ctx.fillRect(-10, -10, 3, 22);
-  ctx.fillRect(7, -10, 3, 22);
+  /* Long side hair (behind face) */
+  ctx.fillRect(-10, -10, 2, 22);
+  ctx.fillRect(8, -10, 2, 22);
   /* Back hair */
-  ctx.fillRect(-8, -5, 2, 20);
-  ctx.fillRect(6, -5, 2, 20);
+  ctx.fillRect(-9, -5, 1, 20);
+  ctx.fillRect(8, -5, 1, 20);
 
   /* Eyes */
   ctx.fillStyle = "#1A1A2E";
@@ -632,10 +620,15 @@ function update(dt) {
   if (keys["ArrowUp"] || keys["KeyW"]) dy -= 1;
   if (keys["ArrowDown"] || keys["KeyS"]) dy += 1;
 
-  /* Touch joystick */
+  /* Touch: move toward finger */
   if (touchActive) {
-    dx += touchDX;
-    dy += touchDY;
+    const tdx = touchTargetX - player.x;
+    const tdy = touchTargetY - player.y;
+    const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+    if (tdist > TOUCH_ARRIVE) {
+      dx += tdx / tdist;
+      dy += tdy / tdist;
+    }
   }
 
   const mag = Math.sqrt(dx * dx + dy * dy);
@@ -838,22 +831,18 @@ function drawHUD() {
   ctx.fillText(enemies.length + " chasers", W - 50, 22);
 }
 
-function drawJoystick() {
-  if (!joystickVisible) return;
-  ctx.globalAlpha = 0.3;
+function drawTouchIndicator() {
+  if (!touchActive || state !== STATE_PLAY) return;
+  ctx.globalAlpha = 0.25;
   ctx.fillStyle = "#fff";
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(joystickCenterX, joystickCenterY, JOYSTICK_RADIUS, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(
-    joystickCenterX + touchDX * JOYSTICK_RADIUS,
-    joystickCenterY + touchDY * JOYSTICK_RADIUS,
-    15, 0, Math.PI * 2
-  );
+  ctx.arc(touchTargetX, touchTargetY, 12, 0, Math.PI * 2);
   ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(touchTargetX, touchTargetY, 20, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.globalAlpha = 1;
 }
 
@@ -919,10 +908,10 @@ function drawStartScreen() {
   ctx.font = (isMobile ? "12" : "14") + "px 'Segoe UI', sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   if (isMobile) {
-    ctx.fillText("Touch & drag to move", cx, cy + 140);
+    ctx.fillText("Tap or hold to move", cx, cy + 140);
   } else {
     ctx.fillText("Arrow Keys / WASD to move", cx, cy + 140);
-    ctx.fillText("Touch & drag on mobile", cx, cy + 160);
+    ctx.fillText("Tap to move on mobile", cx, cy + 160);
   }
 
   /* High score */
@@ -1030,7 +1019,7 @@ function gameLoop(timestamp) {
     drawPlayer(player);
     drawParticles();
     drawHUD();
-    drawJoystick();
+    drawTouchIndicator();
   } else if (state === STATE_OVER) {
     drawBackground();
     drawBgParticles();
